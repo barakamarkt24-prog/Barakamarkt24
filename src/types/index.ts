@@ -279,6 +279,8 @@ export interface AppNotification {
   read: boolean;
   createdAt: string;
   type: 'order' | 'promo' | 'system';
+  targetOrderId?: string;
+  orderId?: string;
 }
 
 export interface Referral {

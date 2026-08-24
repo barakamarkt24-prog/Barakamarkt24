@@ -225,6 +225,11 @@ export const CartScreen: React.FC = () => {
         notes: customerNotes.trim()
       });
 
+      if (!order || !order.id) {
+        throw new Error('لم يتم استلام تأكيد حفظ الطلب من الخادم السحابي');
+      }
+
+      // Successful order confirmed by Firestore
       setOrderSuccess(order.id);
       setOrderSuccessData({
         plz: cleanPlz,
@@ -232,10 +237,11 @@ export const CartScreen: React.FC = () => {
         city: customerCity.trim() || 'Greifswald'
       });
       clearCart();
-      showToast(`تم إرسال طلبك بنجاح رقم #${order.id}`);
-    } catch (e) {
-      console.error(e);
-      showToast('حدث خطأ أثناء إرسال الطلب، يرجى المحاولة ثانية');
+      showToast(`تم استلام طلبك بنجاح رقم #${order.id}`);
+    } catch (e: any) {
+      console.error('[CartScreen] Error submitting order:', e);
+      const errorMessage = e?.message || 'حدث خطأ أثناء إرسال الطلب، يرجى المحاولة ثانية';
+      showToast(errorMessage);
     } finally {
       setIsCheckingOut(false);
     }

@@ -8,7 +8,8 @@ import {
   query, 
   where,
   orderBy,
-  onSnapshot
+  onSnapshot,
+  Unsubscribe
 } from 'firebase/firestore';
 import { db, collections } from './firebaseConfig';
 import { User, Coupon, Offer, AppNotification, Referral } from '../types';
@@ -341,25 +342,35 @@ class AdminService {
     try {
       const snap = await getDocs(collections.notifications);
       if (!snap.empty) {
-        return snap.docs.map(d => ({
+        const notifs = snap.docs.map(d => ({
           ...d.data(),
           id: d.id
         } as AppNotification));
+        notifs.sort((a, b) => b.id.localeCompare(a.id));
+        return notifs;
       }
     } catch (e) {
       console.warn('Error getting notifications:', e);
     }
-    return [
-      {
-        id: 'notif-1',
-        userId: 'all',
-        title: 'أهلاً بكم في بركة ماركت 24',
-        message: 'تم إضافة تشكيلة جديدة من الأجبان الشامية وزيت الزيتون البكر.',
-        read: false,
-        createdAt: new Date().toLocaleDateString('ar-SY'),
-        type: 'system'
-      }
-    ];
+    return [];
+  }
+
+  subscribeToNotifications(callback: (notifications: AppNotification[]) => void): Unsubscribe {
+    try {
+      return onSnapshot(collections.notifications, (snap) => {
+        const notifs = snap.docs.map(d => ({
+          ...d.data(),
+          id: d.id
+        } as AppNotification));
+        notifs.sort((a, b) => b.id.localeCompare(a.id));
+        callback(notifs);
+      }, (err) => {
+        console.warn('Realtime notifications listener error:', err);
+      });
+    } catch (e) {
+      console.warn('Failed to attach notifications listener:', e);
+      return () => {};
+    }
   }
 
   async sendBroadcastNotification(title: string, message: string, type: 'promo' | 'system' | 'order' = 'promo'): Promise<boolean> {

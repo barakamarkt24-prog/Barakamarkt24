@@ -1,6 +1,9 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { 
-  getFirestore, 
+  getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
   collection, 
   CollectionReference, 
   DocumentData
@@ -30,9 +33,22 @@ const firebaseConfig = {
 // Initialize Firebase App
 export const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
 
-// Initialize Firestore
+// Initialize Firestore with robust network fallback & persistence
 const databaseId = getEnv('VITE_FIRESTORE_DATABASE_ID') || firebaseConfigData?.firestoreDatabaseId || undefined;
-export const db = getFirestore(app, databaseId);
+
+let firestoreInstance;
+try {
+  firestoreInstance = initializeFirestore(app, {
+    experimentalAutoDetectLongPolling: true,
+    localCache: persistentLocalCache({
+      tabManager: persistentMultipleTabManager()
+    })
+  }, databaseId);
+} catch (e) {
+  firestoreInstance = getFirestore(app, databaseId);
+}
+
+export const db = firestoreInstance;
 
 // Initialize Auth & Storage
 export const auth = getAuth(app);

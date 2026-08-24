@@ -106,7 +106,8 @@ service cloud.firestore {
     // Notifications Collection
     match /notifications/{notifId} {
       allow read: if isAdmin() || (isAuthenticated() && (resource.data.userId == request.auth.uid || resource.data.userId == 'all'));
-      allow write: if isAdmin();
+      allow create: if isAdmin() || (isAuthenticated() && (request.resource.data.type == 'order' || request.resource.data.userId == 'admin' || request.resource.data.userId == request.auth.uid));
+      allow update, delete: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
     }
 
     // Settings Collection (Public read, Admin write)

@@ -1,6 +1,0 @@
-{
-  "name": "Barakamarkt24",
-  "description": "تطبيق متجر إلكتروني حديث وسهل الاستخدام (Mobile First) - Barakamarkt24",
-  "requestFramePermissions": [],
-  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
-}

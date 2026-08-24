@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   ShoppingBag,
   User as UserIcon,
+  LogIn,
   Tag,
   ArrowRight,
   PackagePlus,
@@ -252,15 +253,30 @@ export const HomeScreen: React.FC = () => {
               )}
             </button>
 
-            {/* Quick Account Button */}
-            <button
-              onClick={() => navigateTo(currentUser ? 'profile' : 'auth')}
-              className="p-2.5 rounded-2xl bg-stone-50 hover:bg-emerald-50 text-stone-700 hover:text-emerald-800 border border-stone-200/80 hover:border-emerald-200 transition-all cursor-pointer active:scale-95 shadow-2xs flex items-center justify-center"
-              aria-label={currentUser ? 'حسابي' : 'تسجيل الدخول'}
-              title={currentUser ? 'حسابي' : 'تسجيل الدخول'}
-            >
-              <UserIcon className="w-4 h-4" />
-            </button>
+            {/* Quick Account / Login Button */}
+            {currentUser ? (
+              <button
+                onClick={() => navigateTo('profile')}
+                className="px-3 py-2 rounded-2xl bg-stone-50 hover:bg-emerald-50 text-stone-700 hover:text-emerald-800 border border-stone-200/80 hover:border-emerald-200 transition-all cursor-pointer active:scale-95 shadow-2xs flex items-center gap-1.5 text-xs font-bold"
+                aria-label="حسابي"
+                title="الملف الشخصي"
+              >
+                <UserIcon className="w-4 h-4 text-emerald-800" />
+                <span className="hidden sm:inline line-clamp-1 max-w-[80px]">
+                  {currentUser.name ? currentUser.name.split(' ')[0] : 'حسابي'}
+                </span>
+              </button>
+            ) : (
+              <button
+                onClick={() => navigateTo('auth')}
+                className="px-3 py-2 rounded-2xl bg-emerald-800 hover:bg-emerald-900 text-white transition-all cursor-pointer active:scale-95 shadow-2xs flex items-center gap-1.5 text-xs font-bold"
+                aria-label="تسجيل الدخول"
+                title="تسجيل الدخول"
+              >
+                <LogIn className="w-3.5 h-3.5 text-amber-300" />
+                <span>دخول</span>
+              </button>
+            )}
 
           </div>
 

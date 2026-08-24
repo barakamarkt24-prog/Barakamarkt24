@@ -7,9 +7,8 @@ import {
   User as UserIcon, 
   Heart, 
   ShieldCheck, 
-  Store,
-  ChevronRight,
-  ArrowRight
+  Truck,
+  LogIn
 } from 'lucide-react';
 import { useApp } from './context/AppContext';
 import { HomeScreen } from './screens/HomeScreen';
@@ -18,6 +17,11 @@ import { ProductDetailScreen } from './screens/ProductDetailScreen';
 import { WishlistScreen } from './screens/WishlistScreen';
 import { OrdersScreen } from './screens/OrdersScreen';
 import { AdminDashboardScreen } from './screens/AdminDashboardScreen';
+import { CategoriesScreen } from './screens/CategoriesScreen';
+import { ProductsScreen } from './screens/ProductsScreen';
+import { AuthScreen } from './screens/AuthScreen';
+import { ProfileScreen } from './screens/ProfileScreen';
+import { DriverDashboardScreen } from './screens/DriverDashboardScreen';
 
 export const App: React.FC = () => {
   const { 
@@ -27,14 +31,17 @@ export const App: React.FC = () => {
     cartCount, 
     wishlist, 
     currentUser, 
-    toast, 
-    storeSettings 
+    toast 
   } = useApp();
 
   const renderScreen = () => {
     switch (currentScreen) {
       case 'home':
         return <HomeScreen />;
+      case 'categories':
+        return <CategoriesScreen />;
+      case 'products':
+        return <ProductsScreen />;
       case 'cart':
         return <CartScreen />;
       case 'product-detail':
@@ -46,48 +53,12 @@ export const App: React.FC = () => {
         return <OrdersScreen />;
       case 'admin':
         return <AdminDashboardScreen />;
-      case 'categories':
-      case 'products':
-        return <HomeScreen />;
+      case 'driver':
+        return <DriverDashboardScreen />;
       case 'auth':
+        return <AuthScreen />;
       case 'profile':
-        return (
-          <div className="p-4 max-w-lg mx-auto pb-24 text-center space-y-4" dir="rtl">
-            <div className="bg-white rounded-3xl p-6 border border-stone-200/80 shadow-2xs space-y-3">
-              <div className="w-14 h-14 rounded-2xl bg-emerald-50 text-emerald-800 flex items-center justify-center mx-auto">
-                <UserIcon className="w-7 h-7" />
-              </div>
-              <h2 className="font-black text-stone-900 text-base">
-                {currentUser ? `مرحباً ${currentUser.name}` : 'حسابي'}
-              </h2>
-              <p className="text-xs text-stone-500">
-                {currentUser ? currentUser.email : 'سجل الدخول لإدارة طلباتك وعناوينك'}
-              </p>
-              {currentUser?.role === 'admin' && (
-                <button
-                  onClick={() => navigateTo('admin')}
-                  className="w-full bg-stone-900 text-amber-300 text-xs font-bold py-3 rounded-2xl flex items-center justify-center gap-2 cursor-pointer shadow-sm"
-                >
-                  <ShieldCheck className="w-4 h-4" />
-                  <span>لوحة تحكم الإدارة</span>
-                </button>
-              )}
-              <button
-                onClick={() => navigateTo('orders')}
-                className="w-full bg-emerald-800 text-white text-xs font-bold py-3 rounded-2xl flex items-center justify-center gap-2 cursor-pointer shadow-sm"
-              >
-                <Clock className="w-4 h-4" />
-                <span>طلباتي السابقة</span>
-              </button>
-              <button
-                onClick={() => navigateTo('home')}
-                className="w-full bg-stone-100 text-stone-800 text-xs font-bold py-2.5 rounded-2xl cursor-pointer"
-              >
-                العودة للرئيسية
-              </button>
-            </div>
-          </div>
-        );
+        return <ProfileScreen />;
       default:
         return <HomeScreen />;
     }
@@ -177,15 +148,37 @@ export const App: React.FC = () => {
             <span className="text-[10px]">طلباتي</span>
           </button>
 
-          <button
-            onClick={() => navigateTo('profile')}
-            className={`flex flex-col items-center gap-1 cursor-pointer transition-colors ${
-              activeTab === 'profile' || currentScreen === 'profile' ? 'text-emerald-800 font-bold' : 'text-stone-400 hover:text-stone-600'
-            }`}
-          >
-            <UserIcon className="w-5 h-5" />
-            <span className="text-[10px]">حسابي</span>
-          </button>
+          {currentUser?.role === 'driver' ? (
+            <button
+              onClick={() => navigateTo('driver')}
+              className={`flex flex-col items-center gap-1 cursor-pointer transition-colors ${
+                currentScreen === 'driver' ? 'text-cyan-800 font-bold' : 'text-stone-400 hover:text-cyan-700'
+              }`}
+            >
+              <Truck className="w-5 h-5" />
+              <span className="text-[10px]">السائق</span>
+            </button>
+          ) : currentUser ? (
+            <button
+              onClick={() => navigateTo('profile')}
+              className={`flex flex-col items-center gap-1 cursor-pointer transition-colors ${
+                activeTab === 'profile' || currentScreen === 'profile' ? 'text-emerald-800 font-bold' : 'text-stone-400 hover:text-stone-600'
+              }`}
+            >
+              <UserIcon className="w-5 h-5" />
+              <span className="text-[10px]">حسابي</span>
+            </button>
+          ) : (
+            <button
+              onClick={() => navigateTo('auth')}
+              className={`flex flex-col items-center gap-1 cursor-pointer transition-colors ${
+                activeTab === 'profile' || currentScreen === 'auth' || currentScreen === 'profile' ? 'text-emerald-800 font-bold' : 'text-stone-400 hover:text-stone-600'
+              }`}
+            >
+              <LogIn className="w-5 h-5" />
+              <span className="text-[10px]">دخول</span>
+            </button>
+          )}
 
         </nav>
       )}

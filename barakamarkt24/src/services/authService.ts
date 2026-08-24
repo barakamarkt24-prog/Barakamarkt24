@@ -14,6 +14,8 @@ import {
   doc, 
   setDoc, 
   updateDoc,
+  onSnapshot,
+  Unsubscribe,
   serverTimestamp
 } from 'firebase/firestore';
 import { auth, db, collections } from './firebaseConfig';
@@ -48,13 +50,21 @@ export const mapAuthErrorToArabic = (errorCode: string): string => {
     case 'auth/weak-password':
       return 'كلمة المرور ضعيفة. يجب أن تتكون من 6 أحرف أو أرقام على الأقل.';
     case 'auth/operation-not-allowed':
-      return 'تسجيل الدخول عبر البريد الإلكتروني غير مفعّل حالياً.';
+      return 'تسجيل الدخول عبر البريد الإلكتروني غير مفعّل حالياً في إعدادات Firebase.';
     case 'auth/too-many-requests':
       return 'تم حظر المحاولات مؤقتاً لكثرة المحاولات الخاطئة. يرجى المحاولة بعد قليل.';
     case 'auth/network-request-failed':
       return 'تعذر الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت.';
+    case 'auth/unauthorized-domain':
+      return 'النطاق الحالي (Domain) غير مدرج في النطاقات المصرح بها في إعدادات Firebase Console (Authentication > Settings > Authorized Domains).';
+    case 'auth/popup-closed-by-user':
+      return 'تم إغلاق نافذة المصادقة قبل اكتمال العملية.';
+    case 'auth/popup-blocked':
+      return 'المتصفح حظر النافذة المنبثقة، يرجى السماح بالنوافذ المنبثقة.';
+    case 'auth/quota-exceeded':
+      return 'تم تجاوز الحد المسموح من الطلبات. يرجى المحاولة لاحقاً.';
     default:
-      return 'حدث خطأ غير متوقع أثناء العملية. يرجى إعادة المحاولة.';
+      return errorCode ? `حدث خطأ أثناء العملية (${errorCode}).` : 'حدث خطأ غير متوقع. يرجى إعادة المحاولة.';
   }
 };
 
@@ -64,6 +74,7 @@ class AuthService {
   private isInitialized = false;
   private authReadyPromise: Promise<User | null>;
   private resolveAuthReady!: (user: User | null) => void;
+  private userDocUnsubscribe: Unsubscribe | null = null;
 
   constructor() {
     this.authReadyPromise = new Promise((resolve) => {
@@ -80,53 +91,99 @@ class AuthService {
       console.warn('Firebase setPersistence warning:', e);
     }
 
+    // Fallback safety timeout if Firebase onAuthStateChanged is delayed by network
+    setTimeout(() => {
+      if (!this.isInitialized) {
+        this.isInitialized = true;
+        this.resolveAuthReady(this.currentUser ? { ...this.currentUser } : null);
+        this.notifyListeners();
+      }
+    }, 2500);
+
     // Listen for real Firebase Auth state changes
     onAuthStateChanged(auth, async (fbUser: FirebaseUser | null) => {
+      // Clean up previous user snapshot listener if any
+      if (this.userDocUnsubscribe) {
+        this.userDocUnsubscribe();
+        this.userDocUnsubscribe = null;
+      }
+
       if (fbUser) {
         try {
           const userDocRef = doc(collections.users, fbUser.uid);
-          const userDocSnap = await getDoc(userDocRef);
           
-          if (userDocSnap.exists()) {
-            const data = userDocSnap.data() as User;
-            let userReferralCode = data.referralCode;
-            if (!userReferralCode) {
-              userReferralCode = referralService.generateReferralCode();
-              try {
-                await updateDoc(userDocRef, { referralCode: userReferralCode });
-              } catch (err) {
-                console.warn('Could not backfill referralCode:', err);
+          // Subscribe to real-time changes on the user document so role changes reflect immediately
+          this.userDocUnsubscribe = onSnapshot(userDocRef, async (docSnap) => {
+            if (docSnap.exists()) {
+              const data = docSnap.data() as User;
+              let userReferralCode = data.referralCode;
+              if (!userReferralCode) {
+                userReferralCode = referralService.generateReferralCode();
+                try {
+                  await updateDoc(userDocRef, { referralCode: userReferralCode });
+                } catch (err) {
+                  console.warn('Could not backfill referralCode:', err);
+                }
               }
+
+              const role = isSuperAdminEmail(fbUser.email) 
+                ? 'admin' 
+                : (data.role === 'admin' ? 'admin' : (data.role === 'driver' ? 'driver' : 'customer'));
+
+              this.currentUser = {
+                ...data,
+                id: fbUser.uid,
+                referralCode: userReferralCode,
+                role
+              };
+            } else {
+              // Create user document if not exists
+              const isAdmin = isSuperAdminEmail(fbUser.email);
+              const generatedCode = referralService.generateReferralCode();
+              const newUserProfile: User = {
+                id: fbUser.uid,
+                name: fbUser.displayName || (isAdmin ? 'مدير المتجر' : 'عميل بركة ماركت'),
+                email: fbUser.email || '',
+                phone: fbUser.phoneNumber || '',
+                role: isAdmin ? 'admin' : 'customer',
+                city: 'غرايفسفالد',
+                address: '',
+                referralCode: generatedCode,
+                createdAt: new Date().toISOString()
+              };
+              try {
+                await setDoc(userDocRef, newUserProfile);
+              } catch (setErr) {
+                console.warn('Error creating user doc on auth change:', setErr);
+              }
+              this.currentUser = newUserProfile;
             }
 
-            const role = isSuperAdminEmail(fbUser.email) 
-              ? 'admin' 
-              : (data.role === 'admin' ? 'admin' : (data.role === 'driver' ? 'driver' : 'customer'));
-
-            this.currentUser = {
-              ...data,
-              id: fbUser.uid,
-              referralCode: userReferralCode,
-              role
-            };
-          } else {
-            // Create user document if not exists
-            const isAdmin = isSuperAdminEmail(fbUser.email);
-            const generatedCode = referralService.generateReferralCode();
-            const newUserProfile: User = {
-              id: fbUser.uid,
-              name: fbUser.displayName || (isAdmin ? 'مدير المتجر' : 'عميل بركة ماركت'),
-              email: fbUser.email || '',
-              phone: fbUser.phoneNumber || '',
-              role: isAdmin ? 'admin' : 'customer',
-              city: 'غرايفسفالد',
-              address: '',
-              referralCode: generatedCode,
-              createdAt: new Date().toISOString()
-            };
-            await setDoc(userDocRef, newUserProfile);
-            this.currentUser = newUserProfile;
-          }
+            if (!this.isInitialized) {
+              this.isInitialized = true;
+              this.resolveAuthReady(this.currentUser ? { ...this.currentUser } : null);
+            }
+            this.notifyListeners();
+          }, (err) => {
+            console.warn('Firestore snapshot error on user doc:', err);
+            if (!this.currentUser) {
+              this.currentUser = {
+                id: fbUser.uid,
+                name: fbUser.displayName || 'عميل بركة ماركت',
+                email: fbUser.email || '',
+                phone: fbUser.phoneNumber || '',
+                role: isSuperAdminEmail(fbUser.email) ? 'admin' : 'customer',
+                city: 'غرايفسفالد',
+                address: '',
+                referralCode: referralService.generateReferralCode()
+              };
+            }
+            if (!this.isInitialized) {
+              this.isInitialized = true;
+              this.resolveAuthReady(this.currentUser ? { ...this.currentUser } : null);
+            }
+            this.notifyListeners();
+          });
         } catch (e) {
           console.warn('Firestore profile sync on auth state changed:', e);
           if (!this.currentUser) {
@@ -141,16 +198,20 @@ class AuthService {
               referralCode: referralService.generateReferralCode()
             };
           }
+          if (!this.isInitialized) {
+            this.isInitialized = true;
+            this.resolveAuthReady(this.currentUser ? { ...this.currentUser } : null);
+          }
+          this.notifyListeners();
         }
       } else {
         this.currentUser = null;
+        if (!this.isInitialized) {
+          this.isInitialized = true;
+          this.resolveAuthReady(null);
+        }
+        this.notifyListeners();
       }
-
-      if (!this.isInitialized) {
-        this.isInitialized = true;
-        this.resolveAuthReady(this.currentUser ? { ...this.currentUser } : null);
-      }
-      this.notifyListeners();
     });
   }
 
@@ -340,6 +401,10 @@ class AuthService {
 
   // 4. Firebase Sign Out
   async logout(): Promise<void> {
+    if (this.userDocUnsubscribe) {
+      this.userDocUnsubscribe();
+      this.userDocUnsubscribe = null;
+    }
     try {
       await signOut(auth);
     } catch (e) {

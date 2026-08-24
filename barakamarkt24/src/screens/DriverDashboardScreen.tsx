@@ -239,6 +239,68 @@ export const DriverDashboardScreen: React.FC = () => {
     window.open(`https://www.google.com/maps/search/?api=1&query=${encoded}`, '_blank');
   };
 
+  if (!currentUser) {
+    return (
+      <div className="p-6 space-y-6 max-w-md mx-auto text-center my-8" dir="rtl">
+        <div className="w-20 h-20 bg-stone-100 text-cyan-800 rounded-3xl flex items-center justify-center mx-auto border border-stone-200 shadow-2xs">
+          <Truck className="w-10 h-10" />
+        </div>
+
+        <div className="space-y-1.5">
+          <h2 className="text-lg font-black text-stone-900">بوابة سائقي بركة ماركت</h2>
+          <p className="text-xs text-stone-500 leading-relaxed max-w-xs mx-auto">
+            سجّل الدخول بحساب السائق الخاص بك لاستعراض وتحديث مهام التوصيل المعينة لك فورياً.
+          </p>
+        </div>
+
+        <button
+          onClick={() => navigateTo('auth')}
+          className="w-full bg-cyan-800 hover:bg-cyan-900 text-white font-bold py-3.5 px-4 rounded-2xl text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer shadow-md active:scale-98 transition-all"
+        >
+          <span>تسجيل الدخول للحساب</span>
+        </button>
+
+        <button
+          onClick={() => navigateTo('home')}
+          className="w-full bg-stone-100 text-stone-700 font-bold py-2.5 rounded-2xl text-xs cursor-pointer hover:bg-stone-200 transition-colors"
+        >
+          العودة للمتجر
+        </button>
+      </div>
+    );
+  }
+
+  if (currentUser.role !== 'driver' && currentUser.role !== 'admin') {
+    return (
+      <div className="p-6 space-y-6 max-w-md mx-auto text-center my-8" dir="rtl">
+        <div className="w-20 h-20 bg-amber-50 text-amber-700 rounded-3xl flex items-center justify-center mx-auto border border-amber-200 shadow-2xs">
+          <ShieldAlert className="w-10 h-10" />
+        </div>
+
+        <div className="space-y-1.5">
+          <h2 className="text-lg font-black text-stone-900">صلاحية خاصة بالسائقين</h2>
+          <p className="text-xs text-stone-500 leading-relaxed max-w-xs mx-auto">
+            حسابك الحالي مسجل كـ ({currentUser.role === 'customer' ? 'عميل' : currentUser.role}). لا تملك صلاحية الوصول إلى لوحة السائق ما لم يتم تعيينك من قبل إدارة المتجر.
+          </p>
+        </div>
+
+        <button
+          onClick={() => navigateTo('home')}
+          className="w-full bg-emerald-800 hover:bg-emerald-900 text-white font-bold py-3.5 px-4 rounded-2xl text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer shadow-md active:scale-98 transition-all"
+        >
+          <span>تصفح منتجات المتجر</span>
+        </button>
+
+        <button
+          onClick={() => navigateTo('profile')}
+          className="w-full bg-stone-100 text-stone-700 font-bold py-2.5 rounded-2xl text-xs cursor-pointer hover:bg-stone-200 transition-colors"
+        >
+          الذهاب لملفي الشخصي
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-stone-100 text-stone-900 pb-28" dir="rtl">
       

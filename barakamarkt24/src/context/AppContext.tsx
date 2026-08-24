@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { 
   CartItem, 
   Category, 
@@ -167,14 +167,38 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsLoadingProducts(false);
   };
 
+  const currentScreenRef = useRef<Screen>(currentScreen);
+  const currentUserRef = useRef<User | null>(currentUser);
+
+  useEffect(() => {
+    currentScreenRef.current = currentScreen;
+  }, [currentScreen]);
+
   useEffect(() => {
     loadAllData();
 
     // Subscribe to auth state changes from Firebase
     const unsubAuth = authService.onUserChanged((user) => {
+      const prevUser = currentUserRef.current;
+      currentUserRef.current = user;
       setCurrentUser(user);
       setIsLoadingAuth(false);
       setIsAuthReady(true);
+
+      // Handle real-time role changes when an admin modifies user role
+      if (prevUser && user && prevUser.id === user.id) {
+        if (prevUser.role === 'driver' && user.role !== 'driver') {
+          if (currentScreenRef.current === 'driver') {
+            navigateTo('home');
+            showToast('تم تحديث دور حسابك إلى عميل');
+          }
+        } else if (prevUser.role !== 'driver' && user.role === 'driver') {
+          if (currentScreenRef.current === 'auth' || currentScreenRef.current === 'profile') {
+            navigateTo('driver');
+            showToast('تم ترقية حسابك إلى سائق توصيل 🚚');
+          }
+        }
+      }
     });
 
     // Subscribe to real-time changes from Firestore for products & categories
@@ -567,7 +591,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const logout = async () => {
     await authService.logout();
     setCurrentUser(null);
-    if (currentScreen === 'admin') {
+    if (currentScreen === 'admin' || currentScreen === 'driver') {
       navigateTo('home');
     }
     showToast('تم تسجيل الخروج بنجاح');

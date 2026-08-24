@@ -18,7 +18,8 @@ import {
   ArrowLeft,
   Receipt,
   FileCheck2,
-  Box
+  Box,
+  LogIn
 } from 'lucide-react';
 import { Order, OrderStatus } from '../types';
 import { orderService } from '../services/orderService';
@@ -57,6 +58,14 @@ export const ORDER_STATUS_CONFIG: Record<OrderStatus, { label: string; bg: strin
     step: 3,
     desc: 'جاري تغليف وتجهيز منتجات المؤونة بعناية للشحن.'
   },
+  ready_for_pickup: {
+    label: 'جاهز للاستلام',
+    bg: 'bg-indigo-50',
+    text: 'text-indigo-800',
+    border: 'border-indigo-200',
+    step: 3,
+    desc: 'الطلب جاهز في الفرع بانتظار استلام السائق.'
+  },
   on_the_way: {
     label: 'في الطريق',
     bg: 'bg-cyan-50',
@@ -80,6 +89,14 @@ export const ORDER_STATUS_CONFIG: Record<OrderStatus, { label: string; bg: strin
     border: 'border-emerald-200',
     step: 5,
     desc: 'تم تسليم الطلب بنجاح. صحة وهنا!'
+  },
+  delivery_failed: {
+    label: 'تعذر التسليم',
+    bg: 'bg-red-50',
+    text: 'text-red-800',
+    border: 'border-red-200',
+    step: 0,
+    desc: 'تعذر تسليم الطلب للعميل، يرجى التواصل مع خدمة العملاء.'
   },
   cancelled: {
     label: 'ملغي',
@@ -165,6 +182,31 @@ export const OrdersScreen: React.FC = () => {
     { id: 'on_the_way', stepNumber: 4, label: 'في الطريق' },
     { id: 'delivered', stepNumber: 5, label: 'تم التسليم' }
   ];
+
+  if (!currentUser) {
+    return (
+      <div className="p-6 space-y-6 max-w-md mx-auto text-center my-8" dir="rtl">
+        <div className="w-20 h-20 bg-stone-100 text-stone-400 rounded-3xl flex items-center justify-center mx-auto border border-stone-200 shadow-2xs">
+          <Package className="w-10 h-10 text-emerald-800" />
+        </div>
+
+        <div className="space-y-1.5">
+          <h2 className="text-lg font-black text-stone-900">سجل طلباتك في بركة ماركت</h2>
+          <p className="text-xs text-stone-500 leading-relaxed max-w-xs mx-auto">
+            سجّل الدخول لتتمكن من متابعة وتتبع طلباتك، معرفة مراحل التوصيل، وإعادة طلب مشترياتك السابقة بضغطة زر.
+          </p>
+        </div>
+
+        <button
+          onClick={() => navigateTo('auth')}
+          className="w-full bg-emerald-800 hover:bg-emerald-900 text-white font-bold py-3.5 px-4 rounded-2xl text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer shadow-md active:scale-98 transition-all"
+        >
+          <LogIn className="w-4 h-4 text-amber-300" />
+          <span>تسجيل الدخول / إنشاء حساب</span>
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="p-4 space-y-4 pb-24 max-w-3xl mx-auto" dir="rtl">

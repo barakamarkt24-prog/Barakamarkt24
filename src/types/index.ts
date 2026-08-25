@@ -138,8 +138,12 @@ export interface User {
   phone: string;
   role: 'customer' | 'admin' | 'driver';
   address?: string;
+  street?: string;
+  houseNumber?: string;
   city?: string;
+  plz?: string;
   postalCode?: string;
+  deliveryNotes?: string;
   avatar?: string;
   referralCode?: string;
   referredBy?: string;
@@ -182,6 +186,8 @@ export interface OrderTimelineItem {
   note?: string;
 }
 
+export type CustomerNoteStatus = 'none' | 'open' | 'replied' | 'resolved';
+
 export interface Order {
   id: string;
   orderId?: string;
@@ -216,6 +222,15 @@ export interface Order {
   assignedAt?: string;
   deliveredAt?: string;
   deliveryNotes?: string;
+
+  // Post-delivery note / Issue reporting fields
+  customerNote?: string;
+  customerNoteCategory?: string;
+  customerNoteCreatedAt?: string;
+  customerNoteUpdatedAt?: string;
+  customerNoteStatus?: CustomerNoteStatus;
+  adminReply?: string;
+  adminReplyCreatedAt?: string;
 }
 
 export interface OrderItem {

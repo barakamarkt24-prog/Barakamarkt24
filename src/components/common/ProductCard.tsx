@@ -11,8 +11,7 @@ interface ProductCardProps {
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product, onSelect }) => {
   const { 
-    setSelectedProduct, 
-    navigateTo, 
+    openProductDetails,
     addToCart, 
     cart, 
     updateQuantity, 
@@ -34,8 +33,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onSelect }) =
     if (onSelect) {
       onSelect(product);
     } else {
-      setSelectedProduct(product);
-      navigateTo('product_detail');
+      openProductDetails(product);
     }
   };
 
@@ -67,7 +65,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onSelect }) =
   return (
     <div 
       onClick={handleClick}
-      className="bg-white rounded-2xl p-2.5 border border-stone-200/80 hover:border-emerald-700/40 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between cursor-pointer group relative"
+      className="bg-white rounded-2xl p-2.5 border border-stone-200/80 hover:border-[#005A36]/50 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between cursor-pointer group relative"
       dir="rtl"
     >
       {/* Top badges & Favorite button */}
@@ -95,7 +93,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onSelect }) =
             </span>
           )}
           {product.isFeatured && (
-            <span className="bg-emerald-800 text-amber-300 text-[9px] font-bold px-1.5 py-0.5 rounded-md shadow-2xs">
+            <span className="bg-[#005A36] text-[#86EFAC] text-[9px] font-bold px-1.5 py-0.5 rounded-md shadow-2xs">
               مميز
             </span>
           )}
@@ -129,7 +127,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onSelect }) =
         <div className="pt-2 flex items-center justify-between mt-auto">
           <div>
             <div className="flex items-baseline gap-1">
-              <span className="font-black text-sm text-emerald-800 font-sans">
+              <span className="font-black text-sm text-[#005A36] font-sans">
                 {currencySymbol || '€'}{product.price.toFixed(2)}
               </span>
               {product.oldPrice && product.oldPrice > product.price && (
@@ -145,12 +143,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onSelect }) =
             currentQuantity > 0 ? (
               <div 
                 onClick={(e) => e.stopPropagation()}
-                className="flex items-center gap-1 bg-emerald-800 text-white rounded-xl p-0.5 shadow-2xs"
+                className="flex items-center gap-1 bg-[#005A36] text-white rounded-xl p-0.5 shadow-2xs"
               >
                 <button
                   onClick={handleDecrement}
                   aria-label="تقليل الكمية"
-                  className="w-6 h-6 rounded-lg hover:bg-emerald-700 flex items-center justify-center cursor-pointer transition-colors"
+                  className="w-6 h-6 rounded-lg hover:bg-[#00472a] flex items-center justify-center cursor-pointer transition-colors"
                 >
                   <Minus className="w-3 h-3" />
                 </button>
@@ -160,7 +158,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onSelect }) =
                 <button
                   onClick={handleIncrement}
                   aria-label="زيادة الكمية"
-                  className="w-6 h-6 rounded-lg hover:bg-emerald-700 flex items-center justify-center cursor-pointer transition-colors"
+                  className="w-6 h-6 rounded-lg hover:bg-[#00472a] flex items-center justify-center cursor-pointer transition-colors"
                 >
                   <Plus className="w-3 h-3" />
                 </button>
@@ -169,7 +167,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onSelect }) =
               <button
                 onClick={handleAddToCart}
                 aria-label="إضافة للسلة"
-                className="w-8 h-8 rounded-xl bg-stone-100 hover:bg-emerald-800 hover:text-white text-stone-800 flex items-center justify-center cursor-pointer transition-all shadow-2xs active:scale-95"
+                className="w-8 h-8 rounded-xl bg-emerald-50 hover:bg-[#005A36] hover:text-white text-[#005A36] flex items-center justify-center cursor-pointer transition-all shadow-2xs active:scale-95"
               >
                 <Plus className="w-4 h-4" />
               </button>

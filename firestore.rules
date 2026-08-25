@@ -35,12 +35,18 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // Users Collection
+    // Users Collection (Profile protection against privilege escalation)
+    // - Admin can read/write all
+    // - Customer can read/update their own profile (cannot escalate role or isAdmin)
+    // - Driver can read/update their own profile only
     match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin() || isDriver();
+      allow read: if isOwner(userId) || isAdmin();
       allow create: if isAuthenticated() && request.auth.uid == userId && 
         (request.resource.data.role == 'customer' || !('role' in request.resource.data) || isAdmin());
-      allow update: if (isOwner(userId) && (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']))) || isAdmin();
+      allow update: if isAdmin() || (
+        isOwner(userId) && 
+        !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role', 'isAdmin', 'driverId', 'email', 'id'])
+      );
       allow delete: if isAdmin();
     }
 
@@ -62,18 +68,72 @@ service cloud.firestore {
       allow write: if isAdmin();
     }
 
-    // Orders Collection (Customer sees only their own orders, Driver sees assigned, Admin sees all)
+    // Orders Collection
+    // - Read: Customer sees only their own, Driver sees assigned, Admin sees all
+    // - Create: Authenticated customer can create with status in ['received', 'pending'], no pre-assigned driver
+    // - Update: Admin can update fully. Customer can ONLY cancel if status is received/pending. Driver can only update delivery status.
+    // - Delete: Admin only
     match /orders/{orderId} {
       allow read: if isAdmin() || (isAuthenticated() && (resource.data.userId == request.auth.uid || resource.data.driverId == request.auth.uid));
-      allow create: if (isAuthenticated() && request.resource.data.userId == request.auth.uid) || (request.resource.data.userId == 'guest') || isAdmin();
-      allow update: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid) || (isDriver() && resource.data.driverId == request.auth.uid);
+      
+      allow create: if isAdmin() || (
+        ((isAuthenticated() && request.resource.data.userId == request.auth.uid) || request.resource.data.userId == 'guest') &&
+        (request.resource.data.status in ['received', 'pending']) &&
+        (!('driverId' in request.resource.data) || request.resource.data.driverId == '')
+      );
+      
+      allow update: if isAdmin() || (
+        // Customer can cancel their own order before preparation starts
+        isOwner(resource.data.userId) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt', 'notes', 'timeline']) &&
+        resource.data.status in ['received', 'pending'] &&
+        request.resource.data.status == 'cancelled'
+      ) || (
+        // Customer can submit or update notes/issues on their own orders without altering financial or order data
+        isOwner(resource.data.userId) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['customerNote', 'customerNoteCategory', 'customerNoteCreatedAt', 'customerNoteUpdatedAt', 'customerNoteStatus', 'updatedAt']) &&
+        request.resource.data.customerNoteStatus in ['open', 'none']
+      ) || (
+        // Driver can only advance delivery status for their assigned orders
+        isDriver() &&
+        resource.data.driverId == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'updatedAt', 'deliveredAt', 'deliveryNotes', 'timeline']) &&
+        request.resource.data.status in ['on_the_way', 'delivered', 'delivery_failed']
+      );
+      
       allow delete: if isAdmin();
     }
 
     // OrderItems Collection
+    // - Read: Admin can read all. Customers can read items belonging to their own order. Drivers can read items for assigned orders.
+    // - Create: Validated item creation tied to an authentic order in the same transaction/batch (both authenticated and guest orders).
+    // - Update/Delete: Admin only (no modification allowed by customer or driver after creation)
     match /orderItems/{itemId} {
-      allow read: if isAdmin() || isAuthenticated();
-      allow create: if true;
+      allow read: if isAdmin() || (
+        isAuthenticated() && (
+          (resource.data.userId == request.auth.uid) ||
+          (exists(/databases/$(database)/documents/orders/$(resource.data.orderId)) && 
+           (get(/databases/$(database)/documents/orders/$(resource.data.orderId)).data.userId == request.auth.uid ||
+            get(/databases/$(database)/documents/orders/$(resource.data.orderId)).data.driverId == request.auth.uid))
+        )
+      );
+      
+      allow create: if isAdmin() || (
+        request.resource.data.orderId is string &&
+        request.resource.data.productId is string &&
+        request.resource.data.price is number &&
+        request.resource.data.quantity is number &&
+        request.resource.data.price >= 0 &&
+        request.resource.data.quantity > 0 &&
+        existsAfter(/databases/$(database)/documents/orders/$(request.resource.data.orderId)) &&
+        getAfter(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.status in ['received', 'pending'] &&
+        (
+          (isAuthenticated() && getAfter(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.userId == request.auth.uid) ||
+          (!isAuthenticated() && getAfter(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.userId == 'guest') ||
+          (getAfter(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.userId == 'guest')
+        )
+      );
+      
       allow update, delete: if isAdmin();
     }
 
@@ -105,9 +165,19 @@ service cloud.firestore {
 
     // Notifications Collection
     match /notifications/{notifId} {
-      allow read: if isAdmin() || (isAuthenticated() && (resource.data.userId == request.auth.uid || resource.data.userId == 'all'));
-      allow create: if isAdmin() || (isAuthenticated() && (request.resource.data.type == 'order' || request.resource.data.userId == 'admin' || request.resource.data.userId == request.auth.uid));
+      allow read: if isAdmin() || (isAuthenticated() && (resource.data.userId == request.auth.uid || resource.data.userId == 'all' || (isDriver() && resource.data.userId == 'driver')));
+      allow create: if isAdmin() || (isAuthenticated() && (request.resource.data.type in ['order', 'promo', 'system'] || request.resource.data.userId == 'admin' || request.resource.data.userId == request.auth.uid));
       allow update, delete: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+    }
+
+    // FCM Device Push Tokens Collection
+    match /fcmTokens/{tokenId} {
+      allow read: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
+      allow create, update: if isAdmin() || (
+        (isAuthenticated() && request.resource.data.userId == request.auth.uid) ||
+        request.resource.data.userId == 'guest'
+      );
+      allow delete: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid);
     }
 
     // Settings Collection (Public read, Admin write)

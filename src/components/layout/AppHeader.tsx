@@ -9,6 +9,7 @@ import {
   User as UserIcon
 } from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { BrandLogo } from '../common/BrandLogo';
 
 export const AppHeader: React.FC = () => {
   const { 
@@ -39,8 +40,8 @@ export const AppHeader: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-stone-100 px-4 py-3 select-none">
-      <div className="flex items-center justify-between gap-2">
+    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-stone-200/70 px-4 py-2.5 select-none shadow-2xs">
+      <div className="flex items-center justify-between gap-2 max-w-7xl mx-auto">
         
         {/* Left Side: Brand Logo or Back Button */}
         <div className="flex items-center gap-2">
@@ -57,15 +58,7 @@ export const AppHeader: React.FC = () => {
               onClick={() => navigateTo('home')}
               className="flex items-center gap-2 text-left cursor-pointer"
             >
-              <div className="w-8 h-8 rounded-xl bg-emerald-800 text-amber-300 font-black font-serif flex items-center justify-center shadow-xs">
-                ب
-              </div>
-              <div className="flex flex-col">
-                <span className="font-black text-base text-stone-900 tracking-tight leading-none">
-                  Baraka<span className="text-emerald-700">markt</span><span className="text-amber-600 text-xs">24</span>
-                </span>
-                <span className="text-[9px] text-stone-600 font-medium">سوق ومؤونة شامية</span>
-              </div>
+              <BrandLogo variant="compact" size="sm" showSubtitle={false} />
             </button>
           )}
 
@@ -91,12 +84,12 @@ export const AppHeader: React.FC = () => {
               }}
               className={`text-[10px] font-bold px-2.5 py-1.5 rounded-xl border flex items-center gap-1 transition-all cursor-pointer ${
                 currentScreen === 'admin'
-                  ? 'bg-amber-600 text-white border-amber-600 shadow-xs'
-                  : 'bg-amber-50 text-amber-800 border-amber-200 hover:bg-amber-100'
+                  ? 'bg-[#005A36] text-white border-[#005A36] shadow-xs'
+                  : 'bg-emerald-50 text-[#005A36] border-emerald-200 hover:bg-emerald-100'
               }`}
               title="لوحة تحكم المدير"
             >
-              <ShieldCheck className="w-3.5 h-3.5" />
+              <ShieldCheck className="w-3.5 h-3.5 text-[#3B8EAA]" />
               <span className="hidden xs:inline">{currentScreen === 'admin' ? 'وضع المتجر' : 'لوحة المدير'}</span>
             </button>
           )}
@@ -105,7 +98,7 @@ export const AppHeader: React.FC = () => {
           {currentScreen !== 'products' && (
             <button
               onClick={() => navigateTo('products')}
-              className="w-9 h-9 rounded-xl bg-stone-50 hover:bg-stone-100 text-stone-700 flex items-center justify-center border border-stone-200/80 cursor-pointer active:scale-95 transition-colors"
+              className="w-9 h-9 rounded-xl bg-stone-50 hover:bg-emerald-50 text-stone-700 hover:text-[#005A36] flex items-center justify-center border border-stone-200/80 cursor-pointer active:scale-95 transition-colors"
               aria-label="البحث"
             >
               <Search className="w-4 h-4" />
@@ -115,7 +108,7 @@ export const AppHeader: React.FC = () => {
           {/* Wishlist Icon */}
           <button
             onClick={() => navigateTo('wishlist')}
-            className="w-9 h-9 rounded-xl bg-stone-50 hover:bg-stone-100 text-stone-700 flex items-center justify-center border border-stone-200/80 relative cursor-pointer active:scale-95 transition-colors"
+            className="w-9 h-9 rounded-xl bg-stone-50 hover:bg-rose-50 text-stone-700 hover:text-rose-600 flex items-center justify-center border border-stone-200/80 relative cursor-pointer active:scale-95 transition-colors"
             aria-label="المفضلة"
           >
             <Heart className={`w-4 h-4 ${wishlist.length > 0 ? 'text-rose-500 fill-rose-500' : 'text-stone-600'}`} />
@@ -132,3 +125,4 @@ export const AppHeader: React.FC = () => {
     </header>
   );
 };
+

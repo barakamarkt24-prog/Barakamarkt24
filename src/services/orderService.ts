@@ -12,7 +12,7 @@ import {
   Unsubscribe
 } from 'firebase/firestore';
 import { db, collections, auth } from './firebaseConfig';
-import { CartItem, Order, OrderItem, OrderStatus, OrderTimelineItem } from '../types';
+import { CartItem, Order, OrderItem, OrderStatus, OrderTimelineItem, CustomerNoteStatus } from '../types';
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   received: 'تم استلام الطلب',
@@ -26,6 +26,26 @@ export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   delivery_failed: 'تعذر تسليم الطلب',
   cancelled: 'تم إلغاء الطلب'
 };
+
+// Helper to deeply remove undefined values and ensure Firestore safe serialization
+function cleanForFirestore<T>(input: T): T {
+  if (input === null || input === undefined) {
+    return input;
+  }
+  if (Array.isArray(input)) {
+    return input.map(item => cleanForFirestore(item)) as unknown as T;
+  }
+  if (typeof input === 'object') {
+    const cleaned: Record<string, any> = {};
+    for (const [key, value] of Object.entries(input)) {
+      if (value !== undefined) {
+        cleaned[key] = cleanForFirestore(value);
+      }
+    }
+    return cleaned as T;
+  }
+  return input;
+}
 
 class OrderService {
   private localOrdersCache: Order[] = [];
@@ -128,6 +148,10 @@ class OrderService {
 
   // Create an order in Cloud Firestore (orders and orderItems collections)
   async createOrder(orderData: Omit<Order, 'id' | 'createdAt' | 'status'> & { orderId?: string; status?: OrderStatus }): Promise<Order> {
+    if (!orderData.items || orderData.items.length === 0) {
+      throw new Error('سلة المشتريات فارغة، لا يمكن إنشاء الطلب');
+    }
+
     const randomNum = Math.floor(100000 + Math.random() * 900000);
     const orderId = orderData.orderId || `ORD-${randomNum}`;
     const now = new Date();
@@ -152,7 +176,7 @@ class OrderService {
       }
     }
 
-    const initialStatus = orderData.status || 'received';
+    const initialStatus: OrderStatus = orderData.status || 'received';
     const initialTimeline: OrderTimelineItem[] = [
       {
         status: initialStatus,
@@ -162,34 +186,93 @@ class OrderService {
       }
     ];
 
+    // Sanitize and structure items to prevent ANY undefined properties from failing Firestore writes
+    const sanitizedItems: CartItem[] = orderData.items.map(item => {
+      const p = item.product || ({} as any);
+      const productPrice = typeof p.price === 'number' ? p.price : parseFloat(p.price || '0') || 0;
+      const itemQty = typeof item.quantity === 'number' && item.quantity > 0 ? item.quantity : 1;
+      const mainImage = p.image || (Array.isArray(p.images) && p.images.length > 0 ? p.images[0] : '') || '';
+
+      return {
+        quantity: itemQty,
+        product: {
+          id: p.id || '',
+          productId: p.id || '',
+          nameAr: p.nameAr || p.name || 'منتج',
+          name: p.name || p.nameAr || 'منتج',
+          nameEn: p.nameEn || '',
+          nameDe: p.nameDe || '',
+          price: productPrice,
+          oldPrice: p.oldPrice ? Number(p.oldPrice) : 0,
+          originalPrice: p.originalPrice ? Number(p.originalPrice) : 0,
+          discount: p.discount ? Number(p.discount) : 0,
+          categoryId: p.categoryId || 'dairy-cheese',
+          subcategoryId: p.subcategoryId || '',
+          image: mainImage,
+          images: Array.isArray(p.images) && p.images.length > 0 ? p.images : (mainImage ? [mainImage] : []),
+          stock: p.stock !== undefined ? Number(p.stock) : 20,
+          stockCount: p.stockCount !== undefined ? Number(p.stockCount) : 20,
+          unit: p.unit || 'قطعة',
+          weight: p.weight || '',
+          isAvailable: p.isAvailable !== false,
+          inStock: p.inStock !== false,
+          origin: p.origin || 'سوري',
+          brand: p.brand || 'بركة ماركت',
+          rating: typeof p.rating === 'number' ? p.rating : 5,
+          reviewsCount: typeof p.reviewsCount === 'number' ? p.reviewsCount : 1,
+          descriptionAr: p.descriptionAr || p.description || '',
+          descriptionEn: p.descriptionEn || '',
+          descriptionDe: p.descriptionDe || ''
+        }
+      };
+    });
+
+    const subtotal = typeof orderData.subtotal === 'number' ? orderData.subtotal : parseFloat(orderData.subtotal as any || '0') || 0;
+    const deliveryFee = typeof orderData.deliveryFee === 'number' ? orderData.deliveryFee : parseFloat(orderData.deliveryFee as any || '0') || 0;
+    const discount = typeof orderData.discount === 'number' ? orderData.discount : parseFloat(orderData.discount as any || '0') || 0;
+    const total = typeof orderData.total === 'number' ? orderData.total : (subtotal + deliveryFee - discount);
+
     const newOrder: Order = {
       ...orderData,
       id: orderId,
       orderId: orderId,
       userId: finalUserId,
+      customerName: (orderData.customerName || '').trim(),
+      phone: (orderData.phone || '').trim(),
+      address: (orderData.address || '').trim(),
+      city: (orderData.city || 'غرايفسفالد').trim(),
+      cityId: orderData.cityId || 'greifswald',
+      branchId: orderData.branchId || 'branch-greifswald-main',
+      plz: (orderData.plz || '').trim(),
+      items: sanitizedItems,
+      subtotal,
+      deliveryFee,
+      discount,
+      total,
       status: initialStatus,
       paymentMethod,
       paymentStatus,
       timeline: initialTimeline,
       createdAt: formattedDate,
       updatedAt: formattedDate,
-      timestamp: now.toISOString()
+      timestamp: now.toISOString(),
+      notes: (orderData.notes || '').trim()
     };
 
     // 1. Atomic write for Order and OrderItems
     try {
       const batch = writeBatch(db);
 
-      // Save to orders collection
+      // Save to orders collection with pure sanitized object
       const orderDocRef = doc(collections.orders, orderId);
-      batch.set(orderDocRef, {
+      const orderPayload = cleanForFirestore({
         id: newOrder.id,
         orderId: newOrder.orderId,
         userId: newOrder.userId,
         customerName: newOrder.customerName || '',
         phone: newOrder.phone || '',
         address: newOrder.address || '',
-        city: newOrder.city || '',
+        city: newOrder.city || 'غرايفسفالد',
         cityId: newOrder.cityId || 'greifswald',
         branchId: newOrder.branchId || 'branch-greifswald-main',
         plz: newOrder.plz || '',
@@ -208,20 +291,28 @@ class OrderService {
         items: newOrder.items
       });
 
+      batch.set(orderDocRef, orderPayload);
+
       // Save items to orderItems collection for detailed analytics & queries
       for (const item of newOrder.items) {
-        const itemId = `${orderId}_${item.product.id}`;
+        const itemId = `${orderId}_${item.product.id || Math.random().toString(36).substring(2, 7)}`;
         const itemDocRef = doc(collections.orderItems, itemId);
-        const orderItemRecord: OrderItem = {
+        const itemPrice = Number(item.product.price) || 0;
+        const itemQty = Number(item.quantity) || 1;
+        const itemTotal = Number((itemPrice * itemQty).toFixed(2));
+
+        const orderItemRecord: Record<string, any> = cleanForFirestore({
           id: itemId,
           orderId: orderId,
-          productId: item.product.id,
-          productNameAr: item.product.nameAr,
-          price: item.product.price,
-          quantity: item.quantity,
-          image: item.product.image,
-          total: item.product.price * item.quantity
-        };
+          userId: finalUserId,
+          productId: item.product.id || '',
+          productNameAr: item.product.nameAr || item.product.name || 'منتج',
+          price: itemPrice,
+          quantity: itemQty,
+          image: item.product.image || '',
+          total: itemTotal
+        });
+
         batch.set(itemDocRef, orderItemRecord);
       }
 
@@ -237,24 +328,81 @@ class OrderService {
     // 2. Add to local memory cache ONLY after real Firestore success
     this.localOrdersCache.unshift(newOrder);
 
-    // 3. Isolated admin notification write (decoupled so notification permission issues never fail the order)
+    // 3. Isolated admin & customer notification write and Server-Side FCM Push Trigger
     try {
-      const notifId = `notif-order-${orderId}-${Date.now()}`;
-      const notifDocRef = doc(collections.notifications, notifId);
-      await setDoc(notifDocRef, {
-        id: notifId,
+      const adminNotifId = `notif-order-${orderId}-${Date.now()}`;
+      const adminNotifDocRef = doc(collections.notifications, adminNotifId);
+      const adminNotifTitle = `طلب جديد #${orderId}`;
+      const adminNotifMessage = `طلب جديد من ${newOrder.customerName || 'عميل'} بقيمة €${newOrder.total.toFixed(2)} (${paymentMethod === 'bank_transfer' ? 'تحويل بنكي' : paymentMethod === 'card' ? 'بطاقة' : 'عند الاستلام'})`;
+
+      await setDoc(adminNotifDocRef, {
+        id: adminNotifId,
         userId: 'admin',
-        title: `طلب جديد #${orderId}`,
-        message: `طلب جديد من ${newOrder.customerName || 'عميل'} بقيمة €${newOrder.total.toFixed(2)} (${paymentMethod === 'bank_transfer' ? 'تحويل بنكي' : paymentMethod === 'card' ? 'بطاقة' : 'عند الاستلام'})`,
+        title: adminNotifTitle,
+        message: adminNotifMessage,
         read: false,
         createdAt: formattedDate,
         type: 'order',
         targetOrderId: orderId,
         orderId: orderId
       });
+
+      // Trigger Server-Side Real FCM Push Notification for Admin Devices
+      try {
+        fetch('/api/send-notification', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            role: 'admin',
+            orderId: orderId,
+            title: adminNotifTitle,
+            body: adminNotifMessage,
+            type: 'order',
+            url: '/?screen=admin'
+          })
+        }).catch(err => console.warn('[orderService] Server push fetch background notice:', err));
+      } catch (fetchErr) {
+        console.warn('[orderService] Server push fetch execution notice:', fetchErr);
+      }
+
+      if (newOrder.userId && newOrder.userId !== 'guest') {
+        const custNotifId = `notif-cust-${orderId}-${Date.now()}`;
+        const custNotifDocRef = doc(collections.notifications, custNotifId);
+        const custNotifTitle = `تم استلام طلبك #${orderId} بنجاح 🎉`;
+        const custNotifMessage = `شكراً لتسوقك من بركة ماركت 24! طلبك بقيمة €${newOrder.total.toFixed(2)} قيد المراجعة والتجهيز.`;
+
+        await setDoc(custNotifDocRef, {
+          id: custNotifId,
+          userId: newOrder.userId,
+          title: custNotifTitle,
+          message: custNotifMessage,
+          read: false,
+          createdAt: formattedDate,
+          type: 'order',
+          targetOrderId: orderId,
+          orderId: orderId
+        });
+
+        // Trigger Server-Side Real FCM Push Notification for Customer Device
+        try {
+          fetch('/api/send-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: newOrder.userId,
+              orderId: orderId,
+              title: custNotifTitle,
+              body: custNotifMessage,
+              type: 'order',
+              url: `/?screen=orders&orderId=${orderId}`
+            })
+          }).catch(() => {});
+        } catch {
+          // Non-blocking
+        }
+      }
     } catch (notifErr) {
-      // Soft log: admin will still receive real-time updates via onSnapshot on orders collection
-      console.warn('[orderService] Admin notification document creation skipped or rejected by rules:', notifErr);
+      console.warn('[orderService] Notification document creation notice:', notifErr);
     }
 
     return newOrder;
@@ -360,6 +508,77 @@ class OrderService {
         updatedAt: formattedDate,
         timeline: updatedTimeline
       });
+
+      // Dispatch Customer Push Notification for status update
+      try {
+        const orderData = orderDoc.exists() ? orderDoc.data() as any : null;
+        const targetUserId = orderData?.userId;
+        if (targetUserId && targetUserId !== 'guest') {
+          const statusMessages: Record<OrderStatus, { title: string; message: string }> = {
+            confirmed: {
+              title: `تم تأكيد طلبك #${id} ✅`,
+              message: 'تم تأكيد طلبك بنجاح وسيبدأ تجهيزه في المتجر قريباً.'
+            },
+            preparing: {
+              title: `طلبك قيد التجهيز والتغليف 📦 #${id}`,
+              message: 'يقوم فريق بركة ماركت 24 بتجهيز وتغليف مشترياتك بعناية.'
+            },
+            ready_for_pickup: {
+              title: `طلبك جاهز للشحن والتوصيل 🛍️ #${id}`,
+              message: 'تم الانتهاء من تجهيز طلبك وهو بانتظار استلام المندوب.'
+            },
+            out_for_delivery: {
+              title: `طلبك في الطريق مع المندوب 🚚 #${id}`,
+              message: 'المندوب في الطريق إلى عنوانك الآن لتسليم الطلب.'
+            },
+            on_the_way: {
+              title: `طلبك في الطريق إليك 🛵 #${id}`,
+              message: 'مندوب التوصيل انطلق بطلبك وسيكون عندك في أقرب وقت.'
+            },
+            delivered: {
+              title: `تم تسليم طلبك بنجاح 🌟 #${id}`,
+              message: 'شكراً لثقتك ببركة ماركت 24! نتمنى لك تجربة تسوق سعيدة.'
+            },
+            delivery_failed: {
+              title: `تعذر تسليم الطلب #${id} ⚠️`,
+              message: note ? `تعذر تسليم طلبك. السبب: ${note}` : 'تعذر تسليم الطلب، سيتواصل معك المندوب أو فريق خدمة العملاء.'
+            },
+            cancelled: {
+              title: `تم إلغاء الطلب #${id} ✕`,
+              message: note ? `تم إلغاء طلبك. السبب: ${note}` : 'تم إلغاء هذا الطلب. يرجى التواصل معنا للاستفسار.'
+            },
+            received: {
+              title: `تم استلام طلبك #${id}`,
+              message: 'طلبك قيد المراجعة في المتجر.'
+            },
+            pending: {
+              title: `طلبك قيد الانتظار #${id}`,
+              message: 'طلبك قيد المعالجة.'
+            }
+          };
+
+          const notifInfo = statusMessages[status] || {
+            title: `تحديث حالة طلبك #${id}`,
+            message: `أصبحت حالة الطلب: ${ORDER_STATUS_LABELS[status] || status}`
+          };
+
+          const notifId = `notif-status-${id}-${status}-${Date.now()}`;
+          const notifDocRef = doc(collections.notifications, notifId);
+          await setDoc(notifDocRef, {
+            id: notifId,
+            userId: targetUserId,
+            title: notifInfo.title,
+            message: notifInfo.message,
+            read: false,
+            createdAt: formattedDate,
+            type: 'order',
+            targetOrderId: id,
+            orderId: id
+          });
+        }
+      } catch (notifErr) {
+        console.warn('Could not dispatch status notification to customer:', notifErr);
+      }
     } catch (e) {
       console.warn('Error updating order status in Firestore:', e);
     }
@@ -530,6 +749,66 @@ class OrderService {
 
       await updateDoc(docRef, updates);
 
+      // Dispatch notifications to customer and admin
+      try {
+        const orderData = orderDoc.exists() ? orderDoc.data() as any : null;
+        const targetUserId = orderData?.userId;
+        const driverName = orderData?.driverName || 'المندوب';
+
+        if (targetUserId && targetUserId !== 'guest') {
+          let custTitle = '';
+          let custMsg = '';
+
+          if (status === 'on_the_way') {
+            custTitle = `المندوب في الطريق إليك 🚚 #${orderId}`;
+            custMsg = `السائق ${driverName} في الطريق الآن إلى عنوانك لتسليم طلبك.`;
+          } else if (status === 'delivered') {
+            custTitle = `تم تسليم طلبك بنجاح 🌟 #${orderId}`;
+            custMsg = 'تم تسليم مشترياتك بالكامل. شكراً لتسوقك من بركة ماركت 24!';
+          } else if (status === 'delivery_failed') {
+            custTitle = `تعذر تسليم طلبك #${orderId}`;
+            custMsg = note ? `ملاحظة السائق: ${note}` : 'تعذر تسليم الطلب، سيتواصل معك فريق خدمة العملاء.';
+          }
+
+          if (custTitle) {
+            const notifId = `notif-driver-upd-${orderId}-${status}-${Date.now()}`;
+            const notifDocRef = doc(collections.notifications, notifId);
+            await setDoc(notifDocRef, {
+              id: notifId,
+              userId: targetUserId,
+              title: custTitle,
+              message: custMsg,
+              read: false,
+              createdAt: formattedDate,
+              type: 'order',
+              targetOrderId: orderId,
+              orderId: orderId
+            });
+          }
+        }
+
+        // Notify Admin on completed delivery or delivery failure
+        if (status === 'delivered' || status === 'delivery_failed') {
+          const adminNotifId = `notif-admin-del-${orderId}-${status}-${Date.now()}`;
+          const adminNotifDocRef = doc(collections.notifications, adminNotifId);
+          await setDoc(adminNotifDocRef, {
+            id: adminNotifId,
+            userId: 'admin',
+            title: status === 'delivered' ? `تم تسليم الطلب #${orderId} ✅` : `⚠️ تعذر تسليم الطلب #${orderId}`,
+            message: status === 'delivered' 
+              ? `قام السائق ${driverName} بتسليم الطلب #${orderId} بنجاح.` 
+              : `تعذر تسليم الطلب #${orderId} بواسطة ${driverName}. ملاحظة: ${note || 'لا توجد ملاحظة'}`,
+            read: false,
+            createdAt: formattedDate,
+            type: 'order',
+            targetOrderId: orderId,
+            orderId: orderId
+          });
+        }
+      } catch (notifErr) {
+        console.warn('Could not dispatch driver status update notification:', notifErr);
+      }
+
       const order = this.localOrdersCache.find(o => o.id === orderId || o.orderId === orderId);
       if (order) {
         order.status = status;
@@ -542,6 +821,167 @@ class OrderService {
       return true;
     } catch (e) {
       console.warn('Error updating driver order status:', e);
+      return false;
+    }
+  }
+
+  // Submit / update customer note or issue on an order (Customer feature)
+  async submitCustomerNote(orderId: string, note: string, category: string = 'general'): Promise<boolean> {
+    const trimmedNote = (note || '').trim();
+    if (!trimmedNote) {
+      throw new Error('يرجى كتابة نص الملاحظة أو تفاصيل المشكلة');
+    }
+
+    const now = new Date();
+    const formattedDate = `${now.toLocaleDateString('ar-SY', { day: 'numeric', month: 'short', year: 'numeric' })} - ${now.toLocaleTimeString('ar-SY', { hour: '2-digit', minute: '2-digit' })}`;
+
+    try {
+      const docRef = doc(collections.orders, orderId);
+      const orderDoc = await getDoc(docRef);
+      const isExistingNote = orderDoc.exists() && !!(orderDoc.data() as any).customerNote;
+
+      const updates: any = {
+        customerNote: trimmedNote,
+        customerNoteCategory: category,
+        customerNoteStatus: 'open',
+        customerNoteUpdatedAt: formattedDate,
+        updatedAt: formattedDate
+      };
+
+      if (!isExistingNote) {
+        updates.customerNoteCreatedAt = formattedDate;
+      }
+
+      await updateDoc(docRef, updates);
+
+      // Send In-App notification to Admin about the customer note / issue
+      try {
+        const orderData = orderDoc.exists() ? orderDoc.data() as any : null;
+        const customerName = orderData?.customerName || 'العميل';
+        const displayOrderId = orderData?.orderId || orderId;
+
+        const notifId = `notif-admin-note-${orderId}-${Date.now()}`;
+        const notifDocRef = doc(collections.notifications, notifId);
+        await setDoc(notifDocRef, {
+          id: notifId,
+          userId: 'admin',
+          title: `📝 ملاحظة / مشكلة جديدة على الطلب #${displayOrderId}`,
+          message: `أرسل ${customerName} ملاحظة بخصوص الطلب #${displayOrderId}: "${trimmedNote.slice(0, 90)}${trimmedNote.length > 90 ? '...' : ''}"`,
+          read: false,
+          createdAt: formattedDate,
+          type: 'order',
+          targetOrderId: orderId,
+          orderId: orderId
+        });
+      } catch (notifErr) {
+        console.warn('Could not dispatch admin notification for customer note:', notifErr);
+      }
+
+      // Update local cache if present
+      const order = this.localOrdersCache.find(o => o.id === orderId || o.orderId === orderId);
+      if (order) {
+        order.customerNote = trimmedNote;
+        order.customerNoteCategory = category;
+        order.customerNoteStatus = 'open';
+        order.customerNoteUpdatedAt = formattedDate;
+        if (!isExistingNote) {
+          order.customerNoteCreatedAt = formattedDate;
+        }
+      }
+
+      return true;
+    } catch (e: any) {
+      console.error('Error submitting customer note:', e);
+      throw new Error(e?.message || 'تعذر إرسال الملاحظة على الطلب، يرجى المحاولة ثانية');
+    }
+  }
+
+  // Admin reply to customer note (Admin feature)
+  async replyToCustomerNote(orderId: string, replyText: string, newStatus: 'replied' | 'resolved' = 'replied'): Promise<boolean> {
+    const trimmedReply = (replyText || '').trim();
+    if (!trimmedReply) {
+      throw new Error('يرجى كتابة نص الرد للعميل');
+    }
+
+    const now = new Date();
+    const formattedDate = `${now.toLocaleDateString('ar-SY', { day: 'numeric', month: 'short', year: 'numeric' })} - ${now.toLocaleTimeString('ar-SY', { hour: '2-digit', minute: '2-digit' })}`;
+
+    try {
+      const docRef = doc(collections.orders, orderId);
+      const orderDoc = await getDoc(docRef);
+
+      const updates: any = {
+        adminReply: trimmedReply,
+        adminReplyCreatedAt: formattedDate,
+        customerNoteStatus: newStatus,
+        customerNoteUpdatedAt: formattedDate,
+        updatedAt: formattedDate
+      };
+
+      await updateDoc(docRef, updates);
+
+      // Send In-App notification to Customer about the admin reply
+      try {
+        const orderData = orderDoc.exists() ? orderDoc.data() as any : null;
+        const targetUserId = orderData?.userId;
+        const displayOrderId = orderData?.orderId || orderId;
+
+        if (targetUserId && targetUserId !== 'guest') {
+          const notifId = `notif-cust-reply-${orderId}-${Date.now()}`;
+          const notifDocRef = doc(collections.notifications, notifId);
+          await setDoc(notifDocRef, {
+            id: notifId,
+            userId: targetUserId,
+            title: `💬 رد جديد من إدارة بركة ماركت على طلبك #${displayOrderId}`,
+            message: `رد الإدارة: "${trimmedReply.slice(0, 100)}${trimmedReply.length > 100 ? '...' : ''}"`,
+            read: false,
+            createdAt: formattedDate,
+            type: 'order',
+            targetOrderId: orderId,
+            orderId: orderId
+          });
+        }
+      } catch (notifErr) {
+        console.warn('Could not dispatch customer notification for admin reply:', notifErr);
+      }
+
+      // Update local cache
+      const order = this.localOrdersCache.find(o => o.id === orderId || o.orderId === orderId);
+      if (order) {
+        order.adminReply = trimmedReply;
+        order.adminReplyCreatedAt = formattedDate;
+        order.customerNoteStatus = newStatus;
+        order.customerNoteUpdatedAt = formattedDate;
+      }
+
+      return true;
+    } catch (e: any) {
+      console.error('Error replying to customer note:', e);
+      throw new Error(e?.message || 'تعذر تسجيل رد الإدارة، يرجى المحاولة ثانية');
+    }
+  }
+
+  // Update customer note status directly (Admin feature: e.g. resolve)
+  async updateCustomerNoteStatus(orderId: string, status: CustomerNoteStatus): Promise<boolean> {
+    const now = new Date();
+    const formattedDate = `${now.toLocaleDateString('ar-SY', { day: 'numeric', month: 'short', year: 'numeric' })} - ${now.toLocaleTimeString('ar-SY', { hour: '2-digit', minute: '2-digit' })}`;
+
+    try {
+      const docRef = doc(collections.orders, orderId);
+      await updateDoc(docRef, {
+        customerNoteStatus: status,
+        customerNoteUpdatedAt: formattedDate,
+        updatedAt: formattedDate
+      });
+
+      const order = this.localOrdersCache.find(o => o.id === orderId || o.orderId === orderId);
+      if (order) {
+        order.customerNoteStatus = status;
+        order.customerNoteUpdatedAt = formattedDate;
+      }
+      return true;
+    } catch (e: any) {
+      console.error('Error updating customer note status:', e);
       return false;
     }
   }

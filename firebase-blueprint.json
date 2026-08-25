@@ -271,6 +271,25 @@
       },
       "required": ["id", "cityId", "nameAr", "nameDe", "isActive"]
     },
+    "FCMToken": {
+      "title": "FCMToken",
+      "description": "FCM device registration tokens for push notifications",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "token": { "type": "string" },
+        "userId": { "type": "string" },
+        "role": { "type": "string", "enum": ["customer", "admin", "driver", "guest"] },
+        "deviceType": { "type": "string" },
+        "platform": { "type": "string" },
+        "userAgent": { "type": "string" },
+        "enabled": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" },
+        "lastActive": { "type": "string" }
+      },
+      "required": ["id", "token", "userId"]
+    },
     "DeliveryZone": {
       "title": "DeliveryZone",
       "description": "Postal code delivery zone mapping to branch",
@@ -347,6 +366,10 @@
     "/notifications/{notifId}": {
       "schema": "Notification",
       "description": "In-app notifications"
+    },
+    "/fcmTokens/{tokenId}": {
+      "schema": "FCMToken",
+      "description": "Device FCM tokens for Push notifications"
     },
     "/referrals/{refId}": {
       "schema": "Referral",

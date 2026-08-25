@@ -69,6 +69,7 @@ export const collections = {
   coupons: createCollection('coupons'),
   offers: createCollection('offers'),
   notifications: createCollection('notifications'),
+  fcmTokens: createCollection('fcmTokens'),
   settings: createCollection('settings'),
   banners: createCollection('banners'),
   favorites: createCollection('favorites'),

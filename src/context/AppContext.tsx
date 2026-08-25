@@ -13,6 +13,7 @@ import { productService } from '../services/productService';
 import { authService } from '../services/authService';
 import { favoriteService } from '../services/favoriteService';
 import { fcmService } from '../services/fcmService';
+import { orderService } from '../services/orderService';
 import { adminService, AppSettings, DEFAULT_SETTINGS } from '../services/adminService';
 
 interface AppContextType {
@@ -25,6 +26,11 @@ interface AppContextType {
 
   // Selected state for details
   selectedProductId: string | null;
+  selectedProduct: Product | null;
+  activeDetailProduct: Product | null;
+  openProductDetails: (product: Product) => void;
+  closeProductDetails: () => void;
+  setSelectedProduct: (product: Product | null) => void;
   selectedCategoryId: string | null;
   selectedSubcategoryId: string | null;
   setSelectedCategoryId: (id: string | null) => void;
@@ -63,7 +69,13 @@ interface AppContextType {
   isInWishlist: (productId: string) => boolean;
 
   // Notifications / FCM
-  requestPushNotifications: () => Promise<string | null>;
+  requestPushNotifications: (vapidKey?: string) => Promise<string | null>;
+  activeNotification: any | null;
+  dismissActiveNotification: () => void;
+  notificationPreferences: any;
+  updateNotificationPreferences: (prefs: any) => void;
+  triggerTestNotification: (role?: 'admin' | 'driver' | 'customer') => Promise<boolean>;
+  broadcastNotification: (title: string, message: string, targetRole?: string, couponCode?: string) => Promise<boolean>;
 
   // Auth & User
   currentUser: User | null;
@@ -72,7 +84,17 @@ interface AppContextType {
   login: (email: string, password: string) => Promise<User>;
   register: (name: string, email: string, phone: string, password: string, referralCode?: string) => Promise<User>;
   sendPasswordReset: (email: string) => Promise<void>;
-  updateProfile: (updates: { name?: string; phone?: string; address?: string; city?: string }) => Promise<User>;
+  updateProfile: (updates: { 
+    name?: string; 
+    phone?: string; 
+    address?: string; 
+    street?: string;
+    houseNumber?: string;
+    city?: string;
+    plz?: string;
+    postalCode?: string;
+    deliveryNotes?: string;
+  }) => Promise<User>;
   logout: () => Promise<void>;
 
   // Toast
@@ -93,6 +115,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Filters & selection
   const [selectedProductId, setSelectedProductId] = useState<string | null>(null);
+  const [activeDetailProduct, setActiveDetailProduct] = useState<Product | null>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
   const [selectedSubcategoryId, setSelectedSubcategoryId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -219,12 +242,118 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setStoreSettings(liveSettings);
     });
 
+    // Listen for Service Worker postMessage navigation events
+    const handleServiceWorkerMessage = (event: MessageEvent) => {
+      if (event.data && event.data.type === 'NOTIFICATION_NAVIGATE') {
+        const { screen, orderId } = event.data;
+        if (screen === 'admin') {
+          navigateTo('admin');
+        } else if (screen === 'driver') {
+          navigateTo('driver');
+        } else if (screen === 'orders') {
+          navigateTo('orders');
+        }
+      }
+    };
+
+    if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+      navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage);
+    }
+
     return () => {
       unsubAuth();
       unsubscribeProds();
       unsubscribeSettings();
+      if (typeof navigator !== 'undefined' && 'serviceWorker' in navigator) {
+        navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage);
+      }
     };
   }, []);
+
+  // Global Admin Real-Time Order & Notification Audio Alert Listener
+  // Works continuously across all screens (Store, Cart, Profile, Settings) as long as app is running
+  const globalAlertedOrderIdsRef = useRef<Set<string>>((() => {
+    const set = new Set<string>();
+    try {
+      const saved = sessionStorage.getItem('baraka_alerted_orders');
+      if (saved) {
+        JSON.parse(saved).forEach((id: string) => set.add(id));
+      }
+    } catch {}
+    return set;
+  })());
+
+  const globalAudioCtxRef = useRef<AudioContext | null>(null);
+
+  const playGlobalOrderAlertChime = () => {
+    try {
+      const AudioCtx = window.AudioContext || (window as any).webkitAudioContext;
+      if (!AudioCtx) return;
+      const ctx = globalAudioCtxRef.current || new AudioCtx();
+      globalAudioCtxRef.current = ctx;
+      if (ctx.state === 'suspended') {
+        ctx.resume();
+      }
+      const notes = [523.25, 659.25, 783.99, 1046.50];
+      notes.forEach((freq, idx) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, ctx.currentTime + idx * 0.14);
+        gain.gain.setValueAtTime(0, ctx.currentTime + idx * 0.14);
+        gain.gain.linearRampToValueAtTime(0.25, ctx.currentTime + idx * 0.14 + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + idx * 0.14 + 0.4);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start(ctx.currentTime + idx * 0.14);
+        osc.stop(ctx.currentTime + idx * 0.14 + 0.45);
+      });
+    } catch (e) {
+      console.warn('[AppContext] Chime sound alert notice:', e);
+    }
+  };
+
+  useEffect(() => {
+    // Only attach admin orders listener if current user is an Admin
+    if (!currentUser || currentUser.role !== 'admin') {
+      return;
+    }
+
+    const unsubAdminOrders = orderService.subscribeToOrders((_orders, newlyAddedOrders) => {
+      if (newlyAddedOrders && newlyAddedOrders.length > 0) {
+        newlyAddedOrders.forEach(latestOrder => {
+          const identifier = latestOrder.orderId || latestOrder.id;
+          if (!globalAlertedOrderIdsRef.current.has(identifier)) {
+            globalAlertedOrderIdsRef.current.add(identifier);
+            globalAlertedOrderIdsRef.current.add(latestOrder.id);
+            try {
+              sessionStorage.setItem('baraka_alerted_orders', JSON.stringify(Array.from(globalAlertedOrderIdsRef.current).slice(-200)));
+            } catch {}
+
+            // Play sound alert if enabled in settings / preferences
+            let isSoundEnabled = true;
+            try {
+              const saved = localStorage.getItem('baraka_admin_sound_alerts');
+              if (saved !== null) {
+                isSoundEnabled = saved === 'true';
+              }
+            } catch {}
+
+            if (isSoundEnabled) {
+              playGlobalOrderAlertChime();
+            }
+
+            // Show global Toast notification
+            showToast(`🔔 طلب جديد #${identifier} بقيمة €${latestOrder.total.toFixed(2)} وصل الآن!`);
+          }
+        });
+      }
+    });
+
+    return () => {
+      unsubAdminOrders();
+    };
+  }, [currentUser?.id, currentUser?.role]);
 
   // Sync Wishlist with Firebase for Authenticated Users
   useEffect(() => {
@@ -327,9 +456,54 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }, 2400);
   };
 
+  const openProductDetails = (product: Product) => {
+    setSelectedProductId(product.id);
+    setActiveDetailProduct(product);
+    try {
+      window.history.pushState({ modal: 'product-detail', productId: product.id }, '');
+    } catch {
+      // Ignore if in restricted environment
+    }
+  };
+
+  const closeProductDetails = () => {
+    setActiveDetailProduct(null);
+    try {
+      if (window.history.state?.modal === 'product-detail') {
+        window.history.back();
+      }
+    } catch {
+      // Ignore
+    }
+  };
+
+  const setSelectedProduct = (product: Product | null) => {
+    if (product) {
+      openProductDetails(product);
+    } else {
+      closeProductDetails();
+    }
+  };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      if (activeDetailProduct) {
+        setActiveDetailProduct(null);
+      }
+    };
+
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [activeDetailProduct]);
+
   const navigateTo = (screen: Screen, params?: { productId?: string; categoryId?: string; subcategoryId?: string }) => {
     if (params?.productId) {
       setSelectedProductId(params.productId);
+      const matched = products.find(p => p.id === params.productId || p.productId === params.productId);
+      if (matched && (screen === 'product-detail' || (screen as string) === 'product_detail')) {
+        openProductDetails(matched);
+        return;
+      }
     }
     if (params?.categoryId !== undefined) {
       setSelectedCategoryId(params.categoryId);
@@ -581,7 +755,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     showToast('تم إرسال رابط استعادة كلمة المرور لبريدك الإلكتروني');
   };
 
-  const updateProfile = async (updates: { name?: string; phone?: string; address?: string; city?: string }) => {
+  const updateProfile = async (updates: { 
+    name?: string; 
+    phone?: string; 
+    address?: string; 
+    street?: string;
+    houseNumber?: string;
+    city?: string;
+    plz?: string;
+    postalCode?: string;
+    deliveryNotes?: string;
+  }) => {
     const updated = await authService.updateProfile(updates);
     setCurrentUser(updated);
     showToast('تم تحديث بياناتك بنجاح');
@@ -608,6 +792,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         goBack,
         navigationHistory,
         selectedProductId,
+        selectedProduct: activeDetailProduct,
+        activeDetailProduct,
+        openProductDetails,
+        closeProductDetails,
+        setSelectedProduct,
         selectedCategoryId,
         selectedSubcategoryId,
         setSelectedCategoryId,

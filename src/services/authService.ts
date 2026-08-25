@@ -414,8 +414,18 @@ class AuthService {
     this.notifyListeners();
   }
 
-  // 5. Update Profile (Name, Phone, Address, City) - Preserves 'customer' role strictly
-  async updateProfile(updates: { name?: string; phone?: string; address?: string; city?: string }): Promise<User> {
+  // 5. Update Profile (Name, Phone, Address, Street, HouseNumber, PLZ, City, DeliveryNotes) - Preserves 'customer' role strictly
+  async updateProfile(updates: { 
+    name?: string; 
+    phone?: string; 
+    address?: string; 
+    street?: string;
+    houseNumber?: string;
+    city?: string;
+    plz?: string;
+    postalCode?: string;
+    deliveryNotes?: string;
+  }): Promise<User> {
     if (!this.currentUser) {
       throw new Error('يجب تسجيل الدخول أولاً لتعديل البيانات');
     }
@@ -424,7 +434,12 @@ class AuthService {
     if (updates.name !== undefined) sanitizedUpdates.name = updates.name.trim();
     if (updates.phone !== undefined) sanitizedUpdates.phone = updates.phone.trim();
     if (updates.address !== undefined) sanitizedUpdates.address = updates.address.trim();
+    if (updates.street !== undefined) sanitizedUpdates.street = updates.street.trim();
+    if (updates.houseNumber !== undefined) sanitizedUpdates.houseNumber = updates.houseNumber.trim();
     if (updates.city !== undefined) sanitizedUpdates.city = updates.city.trim();
+    if (updates.plz !== undefined) sanitizedUpdates.plz = updates.plz.trim();
+    if (updates.postalCode !== undefined) sanitizedUpdates.postalCode = updates.postalCode.trim();
+    if (updates.deliveryNotes !== undefined) sanitizedUpdates.deliveryNotes = updates.deliveryNotes.trim();
 
     // Never allow role modification by client update
     delete (sanitizedUpdates as any).role;

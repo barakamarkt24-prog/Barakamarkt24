@@ -22,6 +22,7 @@ import { ProductsScreen } from './screens/ProductsScreen';
 import { AuthScreen } from './screens/AuthScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { DriverDashboardScreen } from './screens/DriverDashboardScreen';
+import { ProductDetailModal } from './components/ProductDetailModal';
 
 export const App: React.FC = () => {
   const { 
@@ -182,6 +183,9 @@ export const App: React.FC = () => {
 
         </nav>
       )}
+
+      {/* Product Detail Seamless Modal / Bottom Sheet */}
+      <ProductDetailModal />
 
     </div>
   );

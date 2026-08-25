@@ -358,22 +358,22 @@ export const ProductDetailScreen: React.FC = () => {
         {/* 6. Service Perks & Delivery Guarantee */}
         <div className="grid grid-cols-2 gap-2.5">
           <div className="bg-white p-3.5 rounded-2xl border border-stone-200/70 shadow-2xs flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-emerald-800 flex items-center justify-center shrink-0">
-              <Truck className="w-4 h-4" />
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-[#005A36] flex items-center justify-center shrink-0">
+              <Truck className="w-4 h-4 text-[#005A36]" />
             </div>
             <div>
-              <span className="text-[11px] font-bold text-stone-900 block">شحن مبرد وسريع</span>
-              <span className="text-[10px] text-stone-500">لكافة المدن والمناطق</span>
+              <span className="text-[11px] font-bold text-stone-900 block">شحن سريع</span>
+              <span className="text-[10px] text-stone-500">توصيل لباب بيتك</span>
             </div>
           </div>
 
           <div className="bg-white p-3.5 rounded-2xl border border-stone-200/70 shadow-2xs flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-800 flex items-center justify-center shrink-0">
-              <ShieldCheck className="w-4 h-4" />
+            <div className="w-8 h-8 rounded-xl bg-teal-50 text-[#2B7A8D] flex items-center justify-center shrink-0">
+              <ShieldCheck className="w-4 h-4 text-[#3B8EAA]" />
             </div>
             <div>
               <span className="text-[11px] font-bold text-stone-900 block">ضمان الجودة 100%</span>
-              <span className="text-[10px] text-stone-500">طعم بلدي سوري أصيل</span>
+              <span className="text-[10px] text-stone-500">منتجات طازجة ومضمونة</span>
             </div>
           </div>
         </div>

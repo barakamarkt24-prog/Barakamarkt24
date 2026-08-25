@@ -62,13 +62,16 @@ import {
   User as UserIcon,
   Copy,
   FileText,
-  Activity
+  Activity,
+  MessageSquare,
+  HelpCircle
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { Product, Order, OrderStatus, Category, Subcategory, User, Coupon, Offer, AppNotification, Referral } from '../types';
 import { productService } from '../services/productService';
 import { orderService } from '../services/orderService';
 import { adminService, AppSettings } from '../services/adminService';
+import { translateProductContent } from '../services/translationService';
 import { AdminDeliveryManagement } from '../components/admin/AdminDeliveryManagement';
 
 const COMMON_UNITS = ['قطعة', 'كغ', '500غ', '250غ', '100غ', 'علبة', 'برطمان', 'عبوة', 'لتر', 'كيس', 'باقة'];
@@ -153,8 +156,22 @@ export const AdminDashboardScreen: React.FC = () => {
   });
   const [newOrderAlert, setNewOrderAlert] = useState<Order | null>(null);
   const soundAlertsEnabledRef = useRef<boolean>(soundAlertsEnabled);
-  const alertedOrderIdsRef = useRef<Set<string>>(new Set());
+  const alertedOrderIdsRef = useRef<Set<string>>((() => {
+    const set = new Set<string>();
+    try {
+      const saved = sessionStorage.getItem('baraka_alerted_orders');
+      if (saved) {
+        JSON.parse(saved).forEach((id: string) => set.add(id));
+      }
+    } catch {}
+    return set;
+  })());
   const audioContextRef = useRef<AudioContext | null>(null);
+
+  // Customer note reply state for Admin
+  const [replyingOrderId, setReplyingOrderId] = useState<string | null>(null);
+  const [replyInputText, setReplyInputText] = useState<string>('');
+  const [isSubmittingReply, setIsSubmittingReply] = useState<boolean>(false);
 
   useEffect(() => {
     soundAlertsEnabledRef.current = soundAlertsEnabled;
@@ -285,6 +302,7 @@ export const AdminDashboardScreen: React.FC = () => {
   const [prodIngredients, setProdIngredients] = useState('');
   const [prodStorage, setProdStorage] = useState('');
   const [isUploadingImage, setIsUploadingImage] = useState<boolean>(false);
+  const [isTranslating, setIsTranslating] = useState<boolean>(false);
 
   // Quick Price Edit Inline State
   const [quickEditId, setQuickEditId] = useState<string | null>(null);
@@ -329,6 +347,9 @@ export const AdminDashboardScreen: React.FC = () => {
           if (!alertedOrderIdsRef.current.has(identifier)) {
             alertedOrderIdsRef.current.add(identifier);
             alertedOrderIdsRef.current.add(latestOrder.id);
+            try {
+              sessionStorage.setItem('baraka_alerted_orders', JSON.stringify(Array.from(alertedOrderIdsRef.current).slice(-200)));
+            } catch {}
             setNewOrderAlert(latestOrder);
 
             // Play sound if user enabled sound notifications
@@ -437,6 +458,54 @@ export const AdminDashboardScreen: React.FC = () => {
       showToast(`تم نسخ رقم الطلب #${orderId}`);
     } catch (e) {
       showToast(`رقم الطلب: #${orderId}`);
+    }
+  };
+
+  const handleOpenReplyBox = (order: Order) => {
+    setReplyingOrderId(order.id);
+    setReplyInputText(order.adminReply || '');
+  };
+
+  const handleSendAdminReply = async (orderId: string, replyText: string, status: 'replied' | 'resolved' = 'replied') => {
+    if (!replyText.trim()) {
+      showToast('يرجى كتابة نص الرد للعميل');
+      return;
+    }
+    setIsSubmittingReply(true);
+    try {
+      const ok = await orderService.replyToCustomerNote(orderId, replyText.trim(), status);
+      if (ok) {
+        setOrders(prev => prev.map(o => (o.id === orderId || o.orderId === orderId) ? {
+          ...o,
+          adminReply: replyText.trim(),
+          adminReplyCreatedAt: 'الآن',
+          customerNoteStatus: status
+        } : o));
+        showToast(status === 'resolved' ? '✓ تم إرسال الرد وحل المشكلة بنجاح' : '✓ تم إرسال رد الإدارة للعميل بنجاح');
+        setReplyingOrderId(null);
+        setReplyInputText('');
+      } else {
+        showToast('تعذر إرسال الرد، يرجى المحاولة ثانية');
+      }
+    } catch (e: any) {
+      showToast(e?.message || 'تعذر إرسال الرد');
+    } finally {
+      setIsSubmittingReply(false);
+    }
+  };
+
+  const handleUpdateNoteStatus = async (orderId: string, status: 'open' | 'replied' | 'resolved') => {
+    try {
+      const ok = await orderService.updateCustomerNoteStatus(orderId, status);
+      if (ok) {
+        setOrders(prev => prev.map(o => (o.id === orderId || o.orderId === orderId) ? {
+          ...o,
+          customerNoteStatus: status
+        } : o));
+        showToast(status === 'resolved' ? '✓ تم تمييز المشكلة كمحلولة بنجاح' : 'تم تحديث حالة الملاحظة');
+      }
+    } catch (e: any) {
+      showToast(e?.message || 'تعذر تحديث الحالة');
     }
   };
 
@@ -722,6 +791,65 @@ export const AdminDashboardScreen: React.FC = () => {
     setProdIngredients(p.ingredientsAr || '');
     setProdStorage(p.storageAr || '');
     setIsProductModalOpen(true);
+  };
+
+  const handleDuplicateProduct = (p: Product) => {
+    // Open product modal as a NEW product (editingProduct = null) with duplicate data
+    setEditingProduct(null);
+    setProdName(`${p.nameAr || p.name || ''} (نسخة)`);
+    setProdNameEn(p.nameEn ? `${p.nameEn} (Copy)` : '');
+    setProdNameDe(p.nameDe ? `${p.nameDe} (Kopie)` : '');
+    setProdDesc(p.descriptionAr || p.description || '');
+    setProdDescDe(p.descriptionDe || '');
+    setProdDescEn(p.descriptionEn || '');
+    setProdPrice(p.price.toString());
+    setProdOldPrice(p.oldPrice ? p.oldPrice.toString() : (p.originalPrice ? p.originalPrice.toString() : ''));
+    setProdDiscount(p.discount ? p.discount.toString() : '');
+    setProdCategory(p.categoryId || categories[0]?.id || 'dairy-cheese');
+    setProdSubCategory(p.subcategoryId || p.subCategory || '');
+    setProdStock((p.stock || p.stockCount || 25).toString());
+    setProdUnit(p.unit || 'قطعة');
+    setProdWeight(p.weight || '500g');
+    setProdOrigin(p.origin || 'حلب');
+    setProdBrand(p.brand || 'بركة ماركت');
+    
+    // Copy existing image URLs directly without re-uploading to Firebase Storage
+    const imagesList = p.images && p.images.length > 0 
+      ? [...p.images] 
+      : (p.image ? [p.image] : ['https://images.unsplash.com/photo-1552767059-ce182ead6c1b?auto=format&fit=crop&w=600&q=80']);
+    setProdImages(imagesList);
+    setNewImageUrl('');
+    setProdIsAvailable(true);
+    setProdIsFeatured(false);
+    setProdIsBestseller(false);
+    setProdBadge('');
+    setProdIngredients(p.ingredientsAr || '');
+    setProdStorage(p.storageAr || '');
+    
+    setIsProductModalOpen(true);
+    showToast('تم نسخ بيانات المنتج! يمكنك تعديل السعر والوزن والمخزون ثم الحفظ كمنتج جديد');
+  };
+
+  const handleAutoTranslateProduct = async () => {
+    if (!prodName.trim()) {
+      showToast('يرجى كتابة اسم المنتج بالعربية أولاً قبل الترجمة');
+      return;
+    }
+
+    setIsTranslating(true);
+    try {
+      const res = await translateProductContent(prodName, prodDesc);
+      if (res.nameDe) setProdNameDe(res.nameDe);
+      if (res.nameEn) setProdNameEn(res.nameEn);
+      if (res.descriptionDe) setProdDescDe(res.descriptionDe);
+      if (res.descriptionEn) setProdDescEn(res.descriptionEn);
+      showToast('تمت الترجمة وتوليد الأسماء والأوصاف باللغتين بنجاح! يمكنك مراجعتها وتعديلها.');
+    } catch (error: any) {
+      console.error('Translation failed:', error);
+      showToast(error?.message || 'تعذر استكمال الترجمة التلقائية');
+    } finally {
+      setIsTranslating(false);
+    }
   };
 
   const handlePriceChange = (newPrice: string, newOldPrice?: string) => {
@@ -1523,6 +1651,14 @@ export const AdminDashboardScreen: React.FC = () => {
                       </button>
 
                       <button
+                        onClick={() => handleDuplicateProduct(p)}
+                        className="p-1.5 bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-xl border border-amber-200 cursor-pointer transition-colors"
+                        title="نسخ بيانات المنتج لإنشاء منتج جديد سريعاً (Duplicate)"
+                      >
+                        <Copy className="w-4 h-4" />
+                      </button>
+
+                      <button
                         onClick={() => handleOpenEditProduct(p)}
                         className="p-1.5 bg-stone-100 hover:bg-stone-200 text-stone-700 rounded-xl border border-stone-200 cursor-pointer transition-colors"
                         title="تعديل كامل المنتج والصور"
@@ -1985,6 +2121,25 @@ export const AdminDashboardScreen: React.FC = () => {
                     <span>{cfg.label}</span>
                   </span>
 
+                  {ord.customerNote && (
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border flex items-center gap-1 shadow-2xs ${
+                      ord.customerNoteStatus === 'resolved'
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                        : ord.customerNoteStatus === 'replied'
+                        ? 'bg-blue-50 text-blue-800 border-blue-200'
+                        : 'bg-amber-100 text-amber-900 border-amber-300 animate-pulse'
+                    }`}>
+                      <MessageSquare className="w-3 h-3" />
+                      <span>
+                        {ord.customerNoteStatus === 'resolved' 
+                          ? 'ملاحظة محلولة ✓' 
+                          : ord.customerNoteStatus === 'replied' 
+                          ? 'تم الرد للعميل 💬' 
+                          : 'ملاحظة عميل قيد المتابعة ⚠️'}
+                      </span>
+                    </span>
+                  )}
+
                   {isHighlightNew && (
                     <span className="bg-amber-500 text-stone-950 text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider animate-bounce">
                       إجراء مطلوب
@@ -2109,6 +2264,139 @@ export const AdminDashboardScreen: React.FC = () => {
                         <strong className="font-bold">تعليمات التوصيل/السائق: </strong>
                         <span>{ord.deliveryNotes}</span>
                       </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Customer Note & Issue Management Panel */}
+              {ord.customerNote && (
+                <div className="bg-amber-50/80 p-3.5 rounded-2xl border border-amber-200 text-xs space-y-2.5 shadow-2xs">
+                  <div className="flex items-center justify-between flex-wrap gap-1 border-b border-amber-200/60 pb-2">
+                    <div className="flex items-center gap-1.5 font-bold text-amber-950">
+                      <MessageSquare className="w-4 h-4 text-amber-700" />
+                      <span>ملاحظة العميل / إبلاغ عن مشكلة:</span>
+                      <span className="text-[10px] bg-white px-2 py-0.5 rounded-md border border-amber-200 text-amber-800 font-normal">
+                        {ord.customerNoteCategory === 'broken_item' ? '💔 منتج مكسور أو تالف' :
+                         ord.customerNoteCategory === 'missing_item' ? '📦 صنف ناقص' :
+                         ord.customerNoteCategory === 'wrong_item' ? '🔄 صنف غير مطابق' :
+                         ord.customerNoteCategory === 'delay' ? '⏳ تأخير توصيل' : '💬 ملاحظة عامة'}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] text-amber-800 font-sans">{ord.customerNoteCreatedAt || ord.customerNoteUpdatedAt}</span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md border ${
+                        ord.customerNoteStatus === 'resolved'
+                          ? 'bg-emerald-100 text-emerald-900 border-emerald-300'
+                          : ord.customerNoteStatus === 'replied'
+                          ? 'bg-blue-100 text-blue-900 border-blue-300'
+                          : 'bg-amber-200 text-amber-950 border-amber-400'
+                      }`}>
+                        {ord.customerNoteStatus === 'resolved' ? 'تم الحل ✓' : ord.customerNoteStatus === 'replied' ? 'تم الرد 💬' : 'مفتوحة ⚠️'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Note Body */}
+                  <div className="bg-white p-2.5 rounded-xl border border-amber-200/70 text-stone-900 leading-relaxed font-medium">
+                    {ord.customerNote}
+                  </div>
+
+                  {/* Existing Admin Reply */}
+                  {ord.adminReply && (
+                    <div className="bg-blue-50 p-2.5 rounded-xl border border-blue-200 space-y-1 text-blue-950">
+                      <div className="flex items-center justify-between text-[11px] font-bold text-blue-900">
+                        <span className="flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-blue-700" />
+                          <span>رد الإدارة السابق:</span>
+                        </span>
+                        <span className="text-[10px] font-sans font-normal text-blue-700">{ord.adminReplyCreatedAt}</span>
+                      </div>
+                      <p className="text-xs bg-white p-2 rounded-lg border border-blue-100 leading-relaxed">
+                        {ord.adminReply}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Reply Input Form / Buttons */}
+                  {replyingOrderId === ord.id ? (
+                    <div className="space-y-2 pt-1 border-t border-amber-200/70">
+                      <label className="text-[11px] font-bold text-stone-800 block">كتابة رد الإدارة على العميل:</label>
+                      <textarea
+                        rows={2}
+                        value={replyInputText}
+                        onChange={(e) => setReplyInputText(e.target.value)}
+                        placeholder="اكتب ردك للعميل (مثال: نعتذر جداً عن المشكلة، سنقوم بإرسال الصنف البديل أو إيداع الرصيد)..."
+                        className="w-full bg-white border border-stone-300 rounded-xl p-2.5 text-xs text-stone-900 focus:border-emerald-700 outline-hidden resize-none"
+                      />
+                      
+                      {/* Quick preset buttons */}
+                      <div className="flex items-center gap-1.5 flex-wrap text-[10px]">
+                        <button
+                          type="button"
+                          onClick={() => setReplyInputText('نعتذر منك بشدة عن الخطأ! سنقوم بإرسال المنتج البديل مع المندوب فوراً.')}
+                          className="bg-white hover:bg-stone-100 text-stone-700 border border-stone-200 px-2 py-1 rounded-lg cursor-pointer transition-colors"
+                        >
+                          + سنرسل البديل
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setReplyInputText('تم التواصل مع المندوب ومراجعة طلبكم وحل المشكلة بنجاح، شكراً لتواصلك.')}
+                          className="bg-white hover:bg-stone-100 text-stone-700 border border-stone-200 px-2 py-1 rounded-lg cursor-pointer transition-colors"
+                        >
+                          + تم الحل مع المندوب
+                        </button>
+                      </div>
+
+                      <div className="flex items-center justify-end gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => setReplyingOrderId(null)}
+                          className="text-xs text-stone-600 hover:text-stone-800 bg-white border border-stone-200 px-3 py-1.5 rounded-xl cursor-pointer"
+                        >
+                          إلغاء
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isSubmittingReply || !replyInputText.trim()}
+                          onClick={() => handleSendAdminReply(ord.id, replyInputText, 'replied')}
+                          className="text-xs font-bold text-white bg-blue-700 hover:bg-blue-800 px-3.5 py-1.5 rounded-xl cursor-pointer flex items-center gap-1 shadow-2xs disabled:opacity-50"
+                        >
+                          {isSubmittingReply && <RotateCcw className="w-3 h-3 animate-spin" />}
+                          <span>إرسال الرد</span>
+                        </button>
+                        <button
+                          type="button"
+                          disabled={isSubmittingReply || !replyInputText.trim()}
+                          onClick={() => handleSendAdminReply(ord.id, replyInputText, 'resolved')}
+                          className="text-xs font-bold text-white bg-emerald-700 hover:bg-emerald-800 px-3.5 py-1.5 rounded-xl cursor-pointer flex items-center gap-1 shadow-2xs disabled:opacity-50"
+                        >
+                          <span>إرسال الرد وتعيين كمحلولة ✓</span>
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between pt-1 border-t border-amber-200/60 flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleOpenReplyBox(ord)}
+                        className="text-xs font-bold bg-white hover:bg-amber-100/60 text-amber-900 border border-amber-300 px-3 py-1.5 rounded-xl cursor-pointer flex items-center gap-1.5 shadow-2xs transition-colors"
+                      >
+                        <Send className="w-3 h-3 text-amber-700" />
+                        <span>{ord.adminReply ? 'تعديل رد الإدارة' : 'الرد على العميل'}</span>
+                      </button>
+
+                      {ord.customerNoteStatus !== 'resolved' && (
+                        <button
+                          type="button"
+                          onClick={() => handleUpdateNoteStatus(ord.id, 'resolved')}
+                          className="text-xs font-bold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 px-3 py-1.5 rounded-xl cursor-pointer flex items-center gap-1 transition-colors"
+                        >
+                          <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>تمييز المشكلة كمحلولة</span>
+                        </button>
+                      )}
                     </div>
                   )}
                 </div>
@@ -3387,6 +3675,23 @@ export const AdminDashboardScreen: React.FC = () => {
 
             <form onSubmit={handleSaveProduct} className="space-y-4 text-xs">
               <div className="space-y-3 bg-stone-50/70 p-3.5 rounded-2xl border border-stone-100">
+                <div className="flex flex-wrap items-center justify-between gap-2 pb-1 border-b border-stone-200/60">
+                  <div>
+                    <span className="font-extrabold text-stone-900 text-xs">الاسم والترجمة للغات المتجر</span>
+                    <p className="text-[10px] text-stone-500">اكتب الاسم والوصف بالعربية واضغط ترجمة تلقائية لتوليد الألمانية والإنجليزية بضغطة زر</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAutoTranslateProduct}
+                    disabled={isTranslating || !prodName.trim()}
+                    className="text-xs font-bold bg-emerald-800 hover:bg-emerald-900 text-white px-3.5 py-1.5 rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                    title="توليد الأسماء والأوصاف بالألمانية والإنجليزية بطلب واحد"
+                  >
+                    <Sparkles className={`w-3.5 h-3.5 text-amber-300 ${isTranslating ? 'animate-spin' : ''}`} />
+                    <span>{isTranslating ? 'جاري الترجمة...' : 'ترجمة تلقائية (ألماني + إنجليزي)'}</span>
+                  </button>
+                </div>
+
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div className="space-y-1">
                     <label className="font-bold text-stone-700">اسم المنتج بالعربية (إجباري) *</label>

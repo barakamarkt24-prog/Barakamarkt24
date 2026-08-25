@@ -964,12 +964,76 @@ class ProductService {
     });
   }
 
+  // Client-side image compression helper to reduce upload time and storage usage
+  async compressImage(file: File, maxWidth = 1200, maxHeight = 1200, quality = 0.85): Promise<File | Blob> {
+    if (!file.type.startsWith('image/') || file.type.includes('svg') || file.type.includes('gif')) {
+      return file;
+    }
+    if (file.size < 200 * 1024) {
+      return file; // Already small enough (< 200KB)
+    }
+
+    return new Promise((resolve) => {
+      try {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          const img = new Image();
+          img.onload = () => {
+            let { width, height } = img;
+            if (width > maxWidth || height > maxHeight) {
+              if (width > height) {
+                height = Math.round((height * maxWidth) / width);
+                width = maxWidth;
+              } else {
+                width = Math.round((width * maxHeight) / height);
+                height = maxHeight;
+              }
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            if (!ctx) {
+              resolve(file);
+              return;
+            }
+
+            ctx.drawImage(img, 0, 0, width, height);
+            canvas.toBlob(
+              (blob) => {
+                if (blob && blob.size < file.size) {
+                  const optimizedFile = new File([blob], file.name, {
+                    type: 'image/jpeg',
+                    lastModified: Date.now(),
+                  });
+                  resolve(optimizedFile);
+                } else {
+                  resolve(file);
+                }
+              },
+              'image/jpeg',
+              quality
+            );
+          };
+          img.onerror = () => resolve(file);
+          img.src = event.target?.result as string;
+        };
+        reader.onerror = () => resolve(file);
+        reader.readAsDataURL(file);
+      } catch {
+        resolve(file);
+      }
+    });
+  }
+
   // Upload single image to Firebase Storage
   async uploadImage(file: File, folder: string = 'products'): Promise<string> {
     try {
+      const optimizedFile = await this.compressImage(file);
       const filename = `${folder}/${Date.now()}_${file.name.replace(/\s+/g, '_')}`;
       const storageRef = ref(storage, filename);
-      const snapshot = await uploadBytes(storageRef, file);
+      const snapshot = await uploadBytes(storageRef, optimizedFile);
       const downloadUrl = await getDownloadURL(snapshot.ref);
       return downloadUrl;
     } catch (e) {

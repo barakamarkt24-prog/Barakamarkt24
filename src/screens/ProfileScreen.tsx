@@ -23,10 +23,18 @@ import {
   Share2,
   Users,
   Bell,
-  Truck
+  BellRing,
+  Volume2,
+  VolumeX,
+  Truck,
+  FileText,
+  CheckCircle2,
+  AlertTriangle,
+  Send
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { referralService } from '../services/referralService';
+import { fcmService } from '../services/fcmService';
 
 export const ProfileScreen: React.FC = () => {
   const { 
@@ -50,6 +58,21 @@ export const ProfileScreen: React.FC = () => {
   const [referralCount, setReferralCount] = useState<number>(0);
   const [copied, setCopied] = useState<boolean>(false);
   const [activeReferralCode, setActiveReferralCode] = useState<string>(currentUser?.referralCode || '');
+
+  // Notification Preferences States
+  const [orderNotifsEnabled, setOrderNotifsEnabled] = useState<boolean>(() => {
+    return fcmService.getNotificationPreferences().orderUpdates;
+  });
+  const [offersNotifsEnabled, setOffersNotifsEnabled] = useState<boolean>(() => {
+    return fcmService.getNotificationPreferences().offers;
+  });
+  const [soundAlertsEnabled, setSoundAlertsEnabled] = useState<boolean>(() => {
+    return fcmService.getNotificationPreferences().soundEnabled;
+  });
+  const [browserPermission, setBrowserPermission] = useState<NotificationPermission>(() => {
+    return fcmService.getPermissionState();
+  });
+  const [isSendingTestNotif, setIsSendingTestNotif] = useState<boolean>(false);
 
   useEffect(() => {
     if (currentUser?.id) {
@@ -115,6 +138,52 @@ export const ProfileScreen: React.FC = () => {
     setEditCity(currentUser.city || 'غرايفسفالد');
     setEditAddress(currentUser.address || '');
     setIsEditing(true);
+  };
+
+  const handleToggleOrderNotifs = (enabled: boolean) => {
+    setOrderNotifsEnabled(enabled);
+    fcmService.saveNotificationPreferences({ orderUpdates: enabled }, currentUser);
+    showToast(enabled ? 'تم تفعيل إشعارات الطلبات والتوصيل 🔔' : 'تم إيقاف إشعارات الطلبات مؤقتاً');
+  };
+
+  const handleToggleOffersNotifs = (enabled: boolean) => {
+    setOffersNotifsEnabled(enabled);
+    fcmService.saveNotificationPreferences({ offers: enabled }, currentUser);
+    showToast(enabled ? 'تم تفعيل إشعارات العروض والتخفيضات 🏷️' : 'تم إيقاف إشعارات العروض');
+  };
+
+  const handleToggleSoundAlerts = (enabled: boolean) => {
+    setSoundAlertsEnabled(enabled);
+    fcmService.saveNotificationPreferences({ soundEnabled: enabled }, currentUser);
+    showToast(enabled ? 'تم تفعيل التنبيهات الصوتية 🔊' : 'تم كتم أصوات التنبيهات 🔇');
+  };
+
+  const handleEnablePushPermissions = async () => {
+    const token = await requestPushNotifications();
+    const state = fcmService.getPermissionState();
+    setBrowserPermission(state);
+    if (token) {
+      setOrderNotifsEnabled(true);
+      fcmService.saveNotificationPreferences({ orderUpdates: true }, currentUser);
+    }
+  };
+
+  const handleSendTestNotification = async () => {
+    setIsSendingTestNotif(true);
+    try {
+      const userRole = (currentUser?.role as any) || 'customer';
+      const success = await fcmService.triggerTestNotification(userRole);
+      if (success) {
+        showToast('تم إرسال إشعار تجريبي بنجاح! تحقق من شاشتك 🔔');
+      } else {
+        showToast('يرجى السماح بإذن الإشعارات أولاً');
+      }
+    } catch {
+      showToast('تعذر إرسال الإشعار التجريبي');
+    } finally {
+      setIsSendingTestNotif(false);
+      setBrowserPermission(fcmService.getPermissionState());
+    }
   };
 
   const handleCancelEdit = () => {
@@ -501,19 +570,149 @@ export const ProfileScreen: React.FC = () => {
           <ChevronLeft className="w-4 h-4 text-stone-400" />
         </button>
 
+        {/* Dedicated Push Notifications & Alert Control Center */}
+        <div className="p-4 bg-stone-50/70 space-y-3.5 border-y border-stone-200/70 text-stone-800">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-700 flex items-center justify-center">
+                <BellRing className="w-4 h-4" />
+              </div>
+              <div>
+                <span className="font-bold text-xs block text-stone-900">إعدادات الإشعارات والتنبيهات الفورية</span>
+                <span className="text-[10px] text-stone-500">تحكم كامل في إشعارات الطلبات والعروض على هذا الجهاز</span>
+              </div>
+            </div>
+            
+            {browserPermission === 'granted' ? (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
+                <CheckCircle2 className="w-3 h-3" />
+                مفعل بالجهاز
+              </span>
+            ) : browserPermission === 'denied' ? (
+              <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">
+                <AlertTriangle className="w-3 h-3" />
+                محظور بالمتصفح
+              </span>
+            ) : (
+              <button
+                onClick={handleEnablePushPermissions}
+                className="text-[10px] font-bold text-blue-700 bg-blue-50 hover:bg-blue-100 px-2.5 py-1 rounded-lg border border-blue-200 transition-colors cursor-pointer"
+              >
+                تفعيل الإذن الآن
+              </button>
+            )}
+          </div>
+
+          <div className="space-y-2.5 pt-1">
+            {/* Toggle 1: Order Notifications */}
+            <div className="flex items-center justify-between bg-white p-3 rounded-xl border border-stone-200/80 shadow-2xs">
+              <div className="flex items-center gap-2.5">
+                <Truck className="w-4 h-4 text-emerald-700" />
+                <div>
+                  <span className="text-xs font-bold block text-stone-800">إشعارات الطلبات والتوصيل</span>
+                  <span className="text-[10px] text-stone-400">تنبيه فوري عند قبول الطلب، انطلاق السائق، والتسليم</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={orderNotifsEnabled}
+                onClick={() => handleToggleOrderNotifs(!orderNotifsEnabled)}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                  orderNotifsEnabled ? 'bg-emerald-700' : 'bg-stone-300'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                    orderNotifsEnabled ? '-translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Toggle 2: Promo & Discount Notifications */}
+            <div className="flex items-center justify-between bg-white p-3 rounded-xl border border-stone-200/80 shadow-2xs">
+              <div className="flex items-center gap-2.5">
+                <Gift className="w-4 h-4 text-amber-700" />
+                <div>
+                  <span className="text-xs font-bold block text-stone-800">العروض والخصومات الخاصة</span>
+                  <span className="text-[10px] text-stone-400">كوبونات الخصم، عروض نهاية الأسبوع والمنتجات المخفضة</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={offersNotifsEnabled}
+                onClick={() => handleToggleOffersNotifs(!offersNotifsEnabled)}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                  offersNotifsEnabled ? 'bg-emerald-700' : 'bg-stone-300'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                    offersNotifsEnabled ? '-translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Toggle 3: Sound Alerts */}
+            <div className="flex items-center justify-between bg-white p-3 rounded-xl border border-stone-200/80 shadow-2xs">
+              <div className="flex items-center gap-2.5">
+                {soundAlertsEnabled ? (
+                  <Volume2 className="w-4 h-4 text-blue-700" />
+                ) : (
+                  <VolumeX className="w-4 h-4 text-stone-400" />
+                )}
+                <div>
+                  <span className="text-xs font-bold block text-stone-800">التنبيهات الصوتية للتطبيق</span>
+                  <span className="text-[10px] text-stone-400">تشغيل نغمات صوتية واضحة ومميزة عند وصول الإشعار</span>
+                </div>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={soundAlertsEnabled}
+                onClick={() => handleToggleSoundAlerts(!soundAlertsEnabled)}
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-hidden ${
+                  soundAlertsEnabled ? 'bg-blue-700' : 'bg-stone-300'
+                }`}
+              >
+                <span
+                  className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-sm ring-0 transition duration-200 ease-in-out ${
+                    soundAlertsEnabled ? '-translate-x-5' : 'translate-x-0'
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
+          {/* Test Notification Action */}
+          <div className="pt-1 flex items-center justify-between gap-2">
+            <span className="text-[10px] text-stone-500">للتأكد من عمل الإشعارات على هاتفك أو حاسوبك:</span>
+            <button
+              onClick={handleSendTestNotification}
+              disabled={isSendingTestNotif}
+              className="px-3 py-1.5 bg-stone-200 hover:bg-stone-300 text-stone-800 font-bold rounded-lg text-[10px] flex items-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50 shadow-2xs"
+            >
+              <Send className="w-3 h-3 text-stone-600" />
+              <span>{isSendingTestNotif ? 'جاري الإرسال...' : 'إرسال إشعار تجريبي 🔔'}</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Legal Policies & Terms Link */}
         <button
-          onClick={async () => {
-            await requestPushNotifications();
-          }}
+          onClick={() => navigateTo('legal')}
           className="w-full p-4 flex items-center justify-between hover:bg-stone-50 transition-colors cursor-pointer text-stone-800"
         >
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-2xl bg-blue-50 text-blue-700 flex items-center justify-center">
-              <Bell className="w-4 h-4" />
+            <div className="w-9 h-9 rounded-2xl bg-emerald-50 text-emerald-800 flex items-center justify-center">
+              <FileText className="w-4 h-4" />
             </div>
             <div className="text-right">
-              <span className="font-bold block">إشعارات وتنبيهات العروض</span>
-              <span className="text-[10px] text-stone-400">تفعيل التنبيهات الفورية على جهازك</span>
+              <span className="font-bold block">الشروط والسياسات القانونية (AGB & DSGVO)</span>
+              <span className="text-[10px] text-stone-400">سياسة الخصوصية، التوصيل، الإرجاع، وطرق الدفع</span>
             </div>
           </div>
           <ChevronLeft className="w-4 h-4 text-stone-400" />

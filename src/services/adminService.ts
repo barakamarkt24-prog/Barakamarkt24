@@ -12,7 +12,7 @@ import {
   Unsubscribe
 } from 'firebase/firestore';
 import { db, collections } from './firebaseConfig';
-import { User, Coupon, Offer, AppNotification, Referral } from '../types';
+import { User, Coupon, Offer, AppNotification, Referral, AnnouncementItem } from '../types';
 
 export interface StorePaymentMethods {
   cash_on_delivery: boolean;
@@ -28,6 +28,36 @@ export interface BankAccountDetails {
   noteAr?: string;
   noteDe?: string;
 }
+
+export const DEFAULT_ANNOUNCEMENTS: AnnouncementItem[] = [
+  { 
+    id: 'ann-1', 
+    text: 'شحن سريع لباب منزلك في غرايفسفالد والمناطق المجاورة 🚚', 
+    isActive: true, 
+    order: 1, 
+    icon: 'truck', 
+    isHighlight: false,
+    createdAt: new Date().toISOString()
+  },
+  { 
+    id: 'ann-2', 
+    text: 'أجود المنتجات العربية والعالمية طازجة وبأفضل الأسعار 🌟', 
+    isActive: true, 
+    order: 2, 
+    icon: 'shield', 
+    isHighlight: false,
+    createdAt: new Date().toISOString()
+  },
+  { 
+    id: 'ann-3', 
+    text: 'تخفيضات أسبوعية وعروض حصرية متجددة في متجر بركة ماركت 24 🏷️', 
+    isActive: true, 
+    order: 3, 
+    icon: 'tag', 
+    isHighlight: true,
+    createdAt: new Date().toISOString()
+  }
+];
 
 export interface AppSettings {
   id?: string;
@@ -46,6 +76,7 @@ export interface AppSettings {
   bankDetails?: BankAccountDetails;
   currency: string;
   announcementText: string;
+  announcements?: AnnouncementItem[];
   enableMaintenance?: boolean;
   allowGuestCheckout?: boolean;
   welcomeBonusPoints?: number;
@@ -80,6 +111,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
   currency: '€',
   announcementText: 'توصيل مجاني للطلبات فوق 50 يورو في غرايفسفالد وضواحيها!',
+  announcements: DEFAULT_ANNOUNCEMENTS,
   enableMaintenance: false,
   allowGuestCheckout: true,
   welcomeBonusPoints: 100,
@@ -524,6 +556,7 @@ class AdminService {
           const normalized: AppSettings = {
             ...DEFAULT_SETTINGS,
             ...data,
+            announcements: data.announcements && Array.isArray(data.announcements) ? data.announcements : DEFAULT_ANNOUNCEMENTS,
             paymentMethods: {
               ...DEFAULT_SETTINGS.paymentMethods,
               ...(data.paymentMethods || {})
@@ -544,6 +577,95 @@ class AdminService {
       console.warn('Could not attach snapshot listener to settings/store:', e);
       return () => {};
     }
+  }
+
+  // ==========================================
+  // 7. Announcement Ticker Management
+  // ==========================================
+  async getAnnouncements(): Promise<AnnouncementItem[]> {
+    const settings = await this.getSettings();
+    if (settings.announcements && Array.isArray(settings.announcements)) {
+      return [...settings.announcements].sort((a, b) => (a.order || 0) - (b.order || 0));
+    }
+    return DEFAULT_ANNOUNCEMENTS;
+  }
+
+  async saveAnnouncements(announcements: AnnouncementItem[]): Promise<boolean> {
+    try {
+      const normalized = announcements.map((item, index) => ({
+        ...item,
+        order: item.order !== undefined ? Number(item.order) : index + 1,
+        updatedAt: new Date().toISOString()
+      }));
+      return await this.saveSettings({ announcements: normalized });
+    } catch (e) {
+      console.error('Error saving announcements:', e);
+      return false;
+    }
+  }
+
+  async addAnnouncement(item: Omit<AnnouncementItem, 'id'>): Promise<boolean> {
+    try {
+      const current = await this.getAnnouncements();
+      const newId = `ann-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+      const maxOrder = current.reduce((max, a) => Math.max(max, a.order || 0), 0);
+      const newAnnouncement: AnnouncementItem = {
+        ...item,
+        id: newId,
+        order: item.order || (maxOrder + 1),
+        isActive: item.isActive !== undefined ? item.isActive : true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      const updated = [...current, newAnnouncement];
+      return await this.saveAnnouncements(updated);
+    } catch (e) {
+      console.error('Error adding announcement:', e);
+      return false;
+    }
+  }
+
+  async updateAnnouncement(id: string, updates: Partial<AnnouncementItem>): Promise<boolean> {
+    try {
+      const current = await this.getAnnouncements();
+      const updated = current.map(item => {
+        if (item.id === id) {
+          return {
+            ...item,
+            ...updates,
+            updatedAt: new Date().toISOString()
+          };
+        }
+        return item;
+      });
+      return await this.saveAnnouncements(updated);
+    } catch (e) {
+      console.error('Error updating announcement:', e);
+      return false;
+    }
+  }
+
+  async deleteAnnouncement(id: string): Promise<boolean> {
+    try {
+      const current = await this.getAnnouncements();
+      const updated = current.filter(item => item.id !== id);
+      return await this.saveAnnouncements(updated);
+    } catch (e) {
+      console.error('Error deleting announcement:', e);
+      return false;
+    }
+  }
+
+  async toggleAnnouncementActive(id: string, isActive: boolean): Promise<boolean> {
+    return this.updateAnnouncement(id, { isActive });
+  }
+
+  async reorderAnnouncements(items: AnnouncementItem[]): Promise<boolean> {
+    const reindexed = items.map((item, idx) => ({
+      ...item,
+      order: idx + 1
+    }));
+    return this.saveAnnouncements(reindexed);
   }
 }
 

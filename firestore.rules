@@ -77,7 +77,8 @@ service cloud.firestore {
       allow read: if isAdmin() || (isAuthenticated() && (resource.data.userId == request.auth.uid || resource.data.driverId == request.auth.uid));
       
       allow create: if isAdmin() || (
-        ((isAuthenticated() && request.resource.data.userId == request.auth.uid) || request.resource.data.userId == 'guest') &&
+        isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid &&
         (request.resource.data.status in ['received', 'pending']) &&
         (!('driverId' in request.resource.data) || request.resource.data.driverId == '')
       );
@@ -91,7 +92,7 @@ service cloud.firestore {
       ) || (
         // Customer can submit or update notes/issues on their own orders without altering financial or order data
         isOwner(resource.data.userId) &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['customerNote', 'customerNoteCategory', 'customerNoteCreatedAt', 'customerNoteUpdatedAt', 'customerNoteStatus', 'updatedAt']) &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['customerNote', 'customerNoteCategory', 'customerNoteCreatedAt', 'customerNoteUpdatedAt', 'customerNoteStatus', 'customerNoteMessages', 'updatedAt']) &&
         request.resource.data.customerNoteStatus in ['open', 'none']
       ) || (
         // Driver can only advance delivery status for their assigned orders
@@ -106,7 +107,7 @@ service cloud.firestore {
 
     // OrderItems Collection
     // - Read: Admin can read all. Customers can read items belonging to their own order. Drivers can read items for assigned orders.
-    // - Create: Validated item creation tied to an authentic order in the same transaction/batch (both authenticated and guest orders).
+    // - Create: Validated item creation tied to an authentic order in the same transaction/batch for authenticated users.
     // - Update/Delete: Admin only (no modification allowed by customer or driver after creation)
     match /orderItems/{itemId} {
       allow read: if isAdmin() || (
@@ -125,13 +126,11 @@ service cloud.firestore {
         request.resource.data.quantity is number &&
         request.resource.data.price >= 0 &&
         request.resource.data.quantity > 0 &&
+        isAuthenticated() &&
+        request.resource.data.userId == request.auth.uid &&
         existsAfter(/databases/$(database)/documents/orders/$(request.resource.data.orderId)) &&
         getAfter(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.status in ['received', 'pending'] &&
-        (
-          (isAuthenticated() && getAfter(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.userId == request.auth.uid) ||
-          (!isAuthenticated() && getAfter(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.userId == 'guest') ||
-          (getAfter(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.userId == 'guest')
-        )
+        getAfter(/databases/$(database)/documents/orders/$(request.resource.data.orderId)).data.userId == request.auth.uid
       );
       
       allow update, delete: if isAdmin();

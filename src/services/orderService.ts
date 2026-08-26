@@ -4,6 +4,7 @@ import {
   doc, 
   setDoc, 
   updateDoc, 
+  deleteDoc,
   query, 
   where,
   orderBy,
@@ -157,9 +158,12 @@ class OrderService {
     const now = new Date();
     const formattedDate = `${now.toLocaleDateString('ar-SY', { day: 'numeric', month: 'short', year: 'numeric' })} - ${now.toLocaleTimeString('ar-SY', { hour: '2-digit', minute: '2-digit' })}`;
 
-    // Ensure authentic authenticated UID if user is logged into Firebase Auth
+    // Ensure authentic authenticated UID from Firebase Auth (Order creation is strictly protected)
     const currentAuthUid = auth.currentUser?.uid;
-    const finalUserId = currentAuthUid ? currentAuthUid : (orderData.userId || 'guest');
+    if (!currentAuthUid) {
+      throw new Error('يجب تسجيل الدخول أولاً بحساب مسجل لتأكيد وحفظ الطلب');
+    }
+    const finalUserId = currentAuthUid;
 
     // Support payment method accurately (cash_on_delivery, bank_transfer, card, etc.)
     const paymentMethod = orderData.paymentMethod || 'cash_on_delivery';
@@ -240,6 +244,12 @@ class OrderService {
       customerName: (orderData.customerName || '').trim(),
       phone: (orderData.phone || '').trim(),
       address: (orderData.address || '').trim(),
+      street: (orderData.street || '').trim(),
+      houseNumber: (orderData.houseNumber || '').trim(),
+      bellName: (orderData.bellName || '').trim(),
+      floor: (orderData.floor || '').trim(),
+      apartment: (orderData.apartment || '').trim(),
+      cityAreaId: (orderData.cityAreaId || '').trim(),
       city: (orderData.city || 'غرايفسفالد').trim(),
       cityId: orderData.cityId || 'greifswald',
       branchId: orderData.branchId || 'branch-greifswald-main',
@@ -272,6 +282,12 @@ class OrderService {
         customerName: newOrder.customerName || '',
         phone: newOrder.phone || '',
         address: newOrder.address || '',
+        street: newOrder.street || '',
+        houseNumber: newOrder.houseNumber || '',
+        bellName: newOrder.bellName || '',
+        floor: newOrder.floor || '',
+        apartment: newOrder.apartment || '',
+        cityAreaId: newOrder.cityAreaId || '',
         city: newOrder.city || 'غرايفسفالد',
         cityId: newOrder.cityId || 'greifswald',
         branchId: newOrder.branchId || 'branch-greifswald-main',
@@ -575,6 +591,24 @@ class OrderService {
             targetOrderId: id,
             orderId: id
           });
+
+          // Dispatch real push notification to customer device
+          try {
+            fetch('/api/send-notification', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                userId: targetUserId,
+                orderId: id,
+                title: notifInfo.title,
+                body: notifInfo.message,
+                type: 'order',
+                url: `/?screen=orders&orderId=${id}`
+              })
+            }).catch(() => {});
+          } catch {
+            // Non-blocking
+          }
         }
       } catch (notifErr) {
         console.warn('Could not dispatch status notification to customer:', notifErr);
@@ -638,15 +672,37 @@ class OrderService {
       try {
         const notifId = `notif-driver-${orderId}-${Date.now()}`;
         const notifDocRef = doc(collections.notifications, notifId);
+        const driverNotifTitle = `طلب توصيل جديد #${orderId} 🚚`;
+        const driverNotifMsg = `تم تعيين الطلب #${orderId} لك للتوصيل في غرايفسفالد. يرجى مراجعة تفاصيل الطلب والانطلاق.`;
+
         await setDoc(notifDocRef, {
           id: notifId,
           userId: driverId,
-          title: `طلب توصيل جديد #${orderId}`,
-          message: `تم تعيين الطلب #${orderId} لك للتوصيل في غرايفسفالد. يرجى مراجعة تفاصيل الطلب والانطلاق.`,
+          title: driverNotifTitle,
+          message: driverNotifMsg,
           read: false,
           createdAt: formattedDate,
           type: 'order'
         });
+
+        // Trigger real FCM push to driver
+        try {
+          fetch('/api/send-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              userId: driverId,
+              role: 'driver',
+              orderId: orderId,
+              title: driverNotifTitle,
+              body: driverNotifMsg,
+              type: 'order',
+              url: '/?screen=driver'
+            })
+          }).catch(() => {});
+        } catch {
+          // Non-blocking
+        }
       } catch (notifErr) {
         console.warn('Could not create driver notification:', notifErr);
       }
@@ -784,6 +840,22 @@ class OrderService {
               targetOrderId: orderId,
               orderId: orderId
             });
+
+            // Dispatch push notification to customer
+            try {
+              fetch('/api/send-notification', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  userId: targetUserId,
+                  orderId: orderId,
+                  title: custTitle,
+                  body: custMsg,
+                  type: 'order',
+                  url: `/?screen=orders&orderId=${orderId}`
+                })
+              }).catch(() => {});
+            } catch {}
           }
         }
 
@@ -791,19 +863,38 @@ class OrderService {
         if (status === 'delivered' || status === 'delivery_failed') {
           const adminNotifId = `notif-admin-del-${orderId}-${status}-${Date.now()}`;
           const adminNotifDocRef = doc(collections.notifications, adminNotifId);
+          const adminTitle = status === 'delivered' ? `تم تسليم الطلب #${orderId} ✅` : `⚠️ تعذر تسليم الطلب #${orderId}`;
+          const adminBody = status === 'delivered' 
+            ? `قام السائق ${driverName} بتسليم الطلب #${orderId} بنجاح.` 
+            : `تعذر تسليم الطلب #${orderId} بواسطة ${driverName}. ملاحظة: ${note || 'لا توجد ملاحظة'}`;
+
           await setDoc(adminNotifDocRef, {
             id: adminNotifId,
             userId: 'admin',
-            title: status === 'delivered' ? `تم تسليم الطلب #${orderId} ✅` : `⚠️ تعذر تسليم الطلب #${orderId}`,
-            message: status === 'delivered' 
-              ? `قام السائق ${driverName} بتسليم الطلب #${orderId} بنجاح.` 
-              : `تعذر تسليم الطلب #${orderId} بواسطة ${driverName}. ملاحظة: ${note || 'لا توجد ملاحظة'}`,
+            title: adminTitle,
+            message: adminBody,
             read: false,
             createdAt: formattedDate,
             type: 'order',
             targetOrderId: orderId,
             orderId: orderId
           });
+
+          // Dispatch push notification to admin
+          try {
+            fetch('/api/send-notification', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                role: 'admin',
+                orderId: orderId,
+                title: adminTitle,
+                body: adminBody,
+                type: 'order',
+                url: '/?screen=admin'
+              })
+            }).catch(() => {});
+          } catch {}
         }
       } catch (notifErr) {
         console.warn('Could not dispatch driver status update notification:', notifErr);
@@ -839,12 +930,26 @@ class OrderService {
       const docRef = doc(collections.orders, orderId);
       const orderDoc = await getDoc(docRef);
       const isExistingNote = orderDoc.exists() && !!(orderDoc.data() as any).customerNote;
+      const orderData = orderDoc.exists() ? orderDoc.data() as any : null;
+      const customerName = orderData?.customerName || 'العميل';
+
+      const existingMessages = Array.isArray(orderData?.customerNoteMessages) ? [...orderData.customerNoteMessages] : [];
+      const newMsg = {
+        id: `msg-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        sender: 'customer' as const,
+        senderName: customerName,
+        text: trimmedNote,
+        createdAt: formattedDate,
+        timestamp: now.toISOString()
+      };
+      existingMessages.push(newMsg);
 
       const updates: any = {
         customerNote: trimmedNote,
         customerNoteCategory: category,
         customerNoteStatus: 'open',
         customerNoteUpdatedAt: formattedDate,
+        customerNoteMessages: existingMessages,
         updatedAt: formattedDate
       };
 
@@ -856,8 +961,6 @@ class OrderService {
 
       // Send In-App notification to Admin about the customer note / issue
       try {
-        const orderData = orderDoc.exists() ? orderDoc.data() as any : null;
-        const customerName = orderData?.customerName || 'العميل';
         const displayOrderId = orderData?.orderId || orderId;
 
         const notifId = `notif-admin-note-${orderId}-${Date.now()}`;
@@ -884,6 +987,7 @@ class OrderService {
         order.customerNoteCategory = category;
         order.customerNoteStatus = 'open';
         order.customerNoteUpdatedAt = formattedDate;
+        order.customerNoteMessages = existingMessages;
         if (!isExistingNote) {
           order.customerNoteCreatedAt = formattedDate;
         }
@@ -909,12 +1013,38 @@ class OrderService {
     try {
       const docRef = doc(collections.orders, orderId);
       const orderDoc = await getDoc(docRef);
+      const orderData = orderDoc.exists() ? orderDoc.data() as any : null;
+
+      const existingMessages = Array.isArray(orderData?.customerNoteMessages) ? [...orderData.customerNoteMessages] : [];
+      
+      // If messages thread was empty but order had an existing customerNote, seed it first
+      if (existingMessages.length === 0 && orderData?.customerNote) {
+        existingMessages.push({
+          id: `msg-cust-initial-${orderId}`,
+          sender: 'customer' as const,
+          senderName: orderData.customerName || 'العميل',
+          text: orderData.customerNote,
+          createdAt: orderData.customerNoteCreatedAt || orderData.customerNoteUpdatedAt || formattedDate,
+          timestamp: orderData.timestamp || now.toISOString()
+        });
+      }
+
+      // Append new admin reply message
+      existingMessages.push({
+        id: `msg-admin-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`,
+        sender: 'admin' as const,
+        senderName: 'إدارة بركة ماركت 24',
+        text: trimmedReply,
+        createdAt: formattedDate,
+        timestamp: now.toISOString()
+      });
 
       const updates: any = {
         adminReply: trimmedReply,
         adminReplyCreatedAt: formattedDate,
         customerNoteStatus: newStatus,
         customerNoteUpdatedAt: formattedDate,
+        customerNoteMessages: existingMessages,
         updatedAt: formattedDate
       };
 
@@ -922,7 +1052,6 @@ class OrderService {
 
       // Send In-App notification to Customer about the admin reply
       try {
-        const orderData = orderDoc.exists() ? orderDoc.data() as any : null;
         const targetUserId = orderData?.userId;
         const displayOrderId = orderData?.orderId || orderId;
 
@@ -952,6 +1081,7 @@ class OrderService {
         order.adminReplyCreatedAt = formattedDate;
         order.customerNoteStatus = newStatus;
         order.customerNoteUpdatedAt = formattedDate;
+        order.customerNoteMessages = existingMessages;
       }
 
       return true;
@@ -983,6 +1113,313 @@ class OrderService {
     } catch (e: any) {
       console.error('Error updating customer note status:', e);
       return false;
+    }
+  }
+
+  // Delete a specific customer complaint / note from an order (Admin only)
+  async deleteCustomerComplaint(orderId: string): Promise<boolean> {
+    const now = new Date();
+    const formattedDate = `${now.toLocaleDateString('ar-SY', { day: 'numeric', month: 'short', year: 'numeric' })} - ${now.toLocaleTimeString('ar-SY', { hour: '2-digit', minute: '2-digit' })}`;
+
+    try {
+      const docRef = doc(collections.orders, orderId);
+      await updateDoc(docRef, {
+        customerNote: '',
+        customerNoteCategory: null,
+        customerNoteStatus: null,
+        customerNoteCreatedAt: null,
+        customerNoteUpdatedAt: null,
+        customerNoteMessages: [],
+        adminReply: '',
+        adminReplyCreatedAt: null,
+        updatedAt: formattedDate
+      });
+
+      const order = this.localOrdersCache.find(o => o.id === orderId || o.orderId === orderId);
+      if (order) {
+        order.customerNote = '';
+        delete order.customerNoteCategory;
+        delete order.customerNoteStatus;
+        delete order.customerNoteCreatedAt;
+        delete order.customerNoteUpdatedAt;
+        order.customerNoteMessages = [];
+        order.adminReply = '';
+        delete order.adminReplyCreatedAt;
+        order.updatedAt = formattedDate;
+      }
+
+      return true;
+    } catch (e: any) {
+      console.error('Error deleting complaint:', e);
+      throw new Error(e?.message || 'تعذر حذف الشكوى، يرجى المحاولة ثانية');
+    }
+  }
+
+  // Delete all complaints / notes history across orders (Admin only)
+  async deleteAllComplaints(targetOrderIds?: string[]): Promise<{ count: number }> {
+    const now = new Date();
+    const formattedDate = `${now.toLocaleDateString('ar-SY', { day: 'numeric', month: 'short', year: 'numeric' })} - ${now.toLocaleTimeString('ar-SY', { hour: '2-digit', minute: '2-digit' })}`;
+
+    try {
+      let ordersWithComplaints: Order[] = [];
+
+      if (targetOrderIds && targetOrderIds.length > 0) {
+        ordersWithComplaints = this.localOrdersCache.filter(o => 
+          (targetOrderIds.includes(o.id) || (o.orderId && targetOrderIds.includes(o.orderId))) &&
+          (Boolean(o.customerNote && o.customerNote.trim()) || (Array.isArray(o.customerNoteMessages) && o.customerNoteMessages.length > 0))
+        );
+      } else {
+        ordersWithComplaints = this.localOrdersCache.filter(o => 
+          Boolean(o.customerNote && o.customerNote.trim()) || (Array.isArray(o.customerNoteMessages) && o.customerNoteMessages.length > 0)
+        );
+      }
+
+      if (ordersWithComplaints.length === 0) {
+        try {
+          const q = collections.orders;
+          const snap = await getDocs(q);
+          ordersWithComplaints = snap.docs
+            .map(d => ({ ...d.data(), id: d.id } as Order))
+            .filter(o => Boolean(o.customerNote && o.customerNote.trim()) || (Array.isArray(o.customerNoteMessages) && o.customerNoteMessages.length > 0));
+        } catch (fetchErr) {
+          console.warn('Could not fetch complaints for deletion:', fetchErr);
+        }
+      }
+
+      if (ordersWithComplaints.length === 0) {
+        return { count: 0 };
+      }
+
+      let clearedCount = 0;
+      const chunkSize = 200;
+      for (let i = 0; i < ordersWithComplaints.length; i += chunkSize) {
+        const chunk = ordersWithComplaints.slice(i, i + chunkSize);
+        const batch = writeBatch(db);
+
+        for (const ord of chunk) {
+          const docRef = doc(collections.orders, ord.id);
+          batch.update(docRef, {
+            customerNote: '',
+            customerNoteCategory: null,
+            customerNoteStatus: null,
+            customerNoteCreatedAt: null,
+            customerNoteUpdatedAt: null,
+            customerNoteMessages: [],
+            adminReply: '',
+            adminReplyCreatedAt: null,
+            updatedAt: formattedDate
+          });
+        }
+
+        await batch.commit();
+        clearedCount += chunk.length;
+      }
+
+      for (const ord of ordersWithComplaints) {
+        const local = this.localOrdersCache.find(o => o.id === ord.id || o.orderId === ord.id);
+        if (local) {
+          local.customerNote = '';
+          delete local.customerNoteCategory;
+          delete local.customerNoteStatus;
+          delete local.customerNoteCreatedAt;
+          delete local.customerNoteUpdatedAt;
+          local.customerNoteMessages = [];
+          local.adminReply = '';
+          delete local.adminReplyCreatedAt;
+          local.updatedAt = formattedDate;
+        }
+      }
+
+      return { count: clearedCount };
+    } catch (e: any) {
+      console.error('Error clearing complaints history:', e);
+      throw new Error(e?.message || 'تعذر حذف سجل الشكاوى');
+    }
+  }
+
+  // Delete single completed or cancelled order (Admin only)
+  async deleteOrder(orderId: string): Promise<boolean> {
+    try {
+      const docRef = doc(collections.orders, orderId);
+      const snap = await getDoc(docRef);
+      if (!snap.exists()) {
+        throw new Error('لم يتم العثور على الطلب المطلوب حذفه');
+      }
+
+      const orderData = snap.data() as any;
+      const status: OrderStatus = orderData.status;
+      const protectedStatuses: OrderStatus[] = [
+        'received', 
+        'pending', 
+        'confirmed', 
+        'preparing', 
+        'ready_for_pickup', 
+        'on_the_way', 
+        'out_for_delivery'
+      ];
+
+      if (protectedStatuses.includes(status)) {
+        throw new Error('لا يمكن حذف الطلبات النشطة لحماية سير العمل والتوصيل. يمكن فقط حذف الطلبات المسلمة أو الملغاة.');
+      }
+
+      const batch = writeBatch(db);
+
+      // 1. Delete order doc
+      batch.delete(docRef);
+
+      // 2. Delete all related orderItems docs to prevent orphaned data
+      try {
+        const itemsQuery = query(collections.orderItems, where('orderId', '==', orderId));
+        const itemsSnap = await getDocs(itemsQuery);
+        itemsSnap.forEach(itemDoc => {
+          batch.delete(itemDoc.ref);
+        });
+      } catch (itemErr) {
+        console.warn('Could not query orderItems for deletion:', itemErr);
+      }
+
+      await batch.commit();
+
+      // Remove from local cache
+      this.localOrdersCache = this.localOrdersCache.filter(o => o.id !== orderId && o.orderId !== orderId);
+      return true;
+    } catch (e: any) {
+      console.error('Error deleting order:', e);
+      throw new Error(e?.message || 'تعذر حذف الطلب، يرجى المحاولة ثانية');
+    }
+  }
+
+  // Delete all old / completed orders in batch (Admin only - delivered / cancelled / delivery_failed only)
+  async deleteOldOrders(targetOrderIds?: string[]): Promise<{ count: number }> {
+    try {
+      let ordersToDelete: Order[] = [];
+
+      if (targetOrderIds && targetOrderIds.length > 0) {
+        ordersToDelete = this.localOrdersCache.filter(o => 
+          targetOrderIds.includes(o.id) || (o.orderId && targetOrderIds.includes(o.orderId))
+        );
+      } else {
+        ordersToDelete = this.localOrdersCache.filter(o => 
+          o.status === 'delivered' || o.status === 'cancelled' || o.status === 'delivery_failed'
+        );
+      }
+
+      // If local cache had 0, try fetching from Firestore
+      if (ordersToDelete.length === 0) {
+        try {
+          const q = collections.orders;
+          const snap = await getDocs(q);
+          ordersToDelete = snap.docs
+            .map(d => ({ ...d.data(), id: d.id } as Order))
+            .filter(o => o.status === 'delivered' || o.status === 'cancelled' || o.status === 'delivery_failed');
+        } catch (fetchErr) {
+          console.warn('Could not fetch old orders for deletion:', fetchErr);
+        }
+      }
+
+      // Filter strictly only deletable statuses
+      const validDeletable = ordersToDelete.filter(o => 
+        o.status === 'delivered' || o.status === 'cancelled' || o.status === 'delivery_failed'
+      );
+
+      if (validDeletable.length === 0) {
+        return { count: 0 };
+      }
+
+      // Process in chunks of 200 to stay well under Firestore batch limit
+      let deletedCount = 0;
+      const chunkSize = 200;
+      for (let i = 0; i < validDeletable.length; i += chunkSize) {
+        const chunk = validDeletable.slice(i, i + chunkSize);
+        const batch = writeBatch(db);
+
+        for (const ord of chunk) {
+          const docRef = doc(collections.orders, ord.id);
+          batch.delete(docRef);
+
+          // Delete order items
+          try {
+            const itemsQuery = query(collections.orderItems, where('orderId', '==', ord.id));
+            const itemsSnap = await getDocs(itemsQuery);
+            itemsSnap.forEach(itemDoc => {
+              batch.delete(itemDoc.ref);
+            });
+          } catch (err) {
+            console.warn('Could not query orderItems for batch deletion:', err);
+          }
+        }
+
+        await batch.commit();
+        deletedCount += chunk.length;
+      }
+
+      const deletedIds = new Set(validDeletable.map(o => o.id));
+      this.localOrdersCache = this.localOrdersCache.filter(o => !deletedIds.has(o.id));
+
+      return { count: deletedCount };
+    } catch (e: any) {
+      console.error('Error deleting old orders batch:', e);
+      throw new Error(e?.message || 'تعذر حذف سجل الطلبات القديمة');
+    }
+  }
+
+  // Delete all completed sales (delivered orders only) in batch (Admin only for trial reset)
+  async deleteAllSales(): Promise<{ count: number; totalAmount: number }> {
+    try {
+      let salesToDelete: Order[] = this.localOrdersCache.filter(o => o.status === 'delivered');
+
+      if (salesToDelete.length === 0) {
+        try {
+          const q = query(collections.orders, where('status', '==', 'delivered'));
+          const snap = await getDocs(q);
+          salesToDelete = snap.docs.map(d => ({ ...d.data(), id: d.id } as Order));
+        } catch (fetchErr) {
+          console.warn('Could not fetch delivered orders for sales deletion:', fetchErr);
+        }
+      }
+
+      // Strictly ensure only delivered orders are processed
+      const validSales = salesToDelete.filter(o => o.status === 'delivered');
+
+      if (validSales.length === 0) {
+        return { count: 0, totalAmount: 0 };
+      }
+
+      const totalAmount = validSales.reduce((sum, ord) => sum + (ord.total || 0), 0);
+
+      // Process in chunks of 200
+      let deletedCount = 0;
+      const chunkSize = 200;
+      for (let i = 0; i < validSales.length; i += chunkSize) {
+        const chunk = validSales.slice(i, i + chunkSize);
+        const batch = writeBatch(db);
+
+        for (const ord of chunk) {
+          const docRef = doc(collections.orders, ord.id);
+          batch.delete(docRef);
+
+          try {
+            const itemsQuery = query(collections.orderItems, where('orderId', '==', ord.id));
+            const itemsSnap = await getDocs(itemsQuery);
+            itemsSnap.forEach(itemDoc => {
+              batch.delete(itemDoc.ref);
+            });
+          } catch (err) {
+            console.warn('Could not query orderItems for sales batch deletion:', err);
+          }
+        }
+
+        await batch.commit();
+        deletedCount += chunk.length;
+      }
+
+      const deletedIds = new Set(validSales.map(o => o.id));
+      this.localOrdersCache = this.localOrdersCache.filter(o => !deletedIds.has(o.id));
+
+      return { count: deletedCount, totalAmount };
+    } catch (e: any) {
+      console.error('Error deleting all sales records:', e);
+      throw new Error(e?.message || 'تعذر حذف سجل المبيعات');
     }
   }
 }

@@ -194,6 +194,7 @@ class FCMService {
       const deviceType = isMobile ? 'mobile' : isTablet ? 'tablet' : 'desktop';
 
       const prefs = this.getNotificationPreferences();
+      const isEnabled = prefs.orderUpdates !== false;
 
       await setDoc(tokenRef, {
         id: tokenDocId,
@@ -204,7 +205,7 @@ class FCMService {
         deviceType: deviceType,
         platform: typeof navigator !== 'undefined' ? (navigator as any).platform || 'web' : 'web',
         userAgent: userAgent.slice(0, 200),
-        enabled: true,
+        enabled: isEnabled,
         settings: {
           orderUpdates: prefs.orderUpdates,
           offers: prefs.offers,
@@ -215,9 +216,18 @@ class FCMService {
         lastActive: now
       }, { merge: true });
 
-      console.log(`[FCMService] FCM Token registered in Firestore for user: ${userId} (${role})`);
+      console.log(`[FCMService] FCM Token registered in Firestore for user: ${userId} (${role}), enabled: ${isEnabled}`);
     } catch (e) {
       console.warn('[FCMService] Could not save FCM token to Firestore:', e);
+    }
+  }
+
+  // Re-sync active device token with current authenticated user
+  async syncAuthUser(user: User | null): Promise<void> {
+    const token = this.activeToken || (typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEY_FCM_TOKEN) : null);
+    if (token) {
+      this.activeToken = token;
+      await this.saveTokenToFirestore(token, user);
     }
   }
 
@@ -262,8 +272,10 @@ class FCMService {
       // ignore
     }
 
-    if (this.activeToken && user) {
-      this.saveTokenToFirestore(this.activeToken, user);
+    const token = this.activeToken || (typeof localStorage !== 'undefined' ? localStorage.getItem(STORAGE_KEY_FCM_TOKEN) : null);
+    if (token) {
+      this.activeToken = token;
+      this.saveTokenToFirestore(token, user);
     }
 
     return updated;

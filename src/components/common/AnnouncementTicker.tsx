@@ -1,23 +1,72 @@
-import React from 'react';
-import { Sparkles, Truck, Tag, Flame, ShieldCheck, ChevronLeft } from 'lucide-react';
+import React, { useMemo } from 'react';
+import { 
+  Sparkles, 
+  Truck, 
+  Tag, 
+  Flame, 
+  ShieldCheck, 
+  Bell, 
+  Gift, 
+  Percent 
+} from 'lucide-react';
 import { useApp } from '../../context/AppContext';
+import { AnnouncementItem } from '../../types';
+import { DEFAULT_ANNOUNCEMENTS } from '../../services/adminService';
 
 interface AnnouncementTickerProps {
   onPressAction?: () => void;
 }
 
+const getAnnouncementIcon = (iconName?: string) => {
+  switch (iconName) {
+    case 'truck':
+      return Truck;
+    case 'shield':
+      return ShieldCheck;
+    case 'tag':
+      return Tag;
+    case 'flame':
+      return Flame;
+    case 'bell':
+      return Bell;
+    case 'gift':
+      return Gift;
+    case 'percent':
+      return Percent;
+    case 'sparkles':
+    default:
+      return Sparkles;
+  }
+};
+
 export const AnnouncementTicker: React.FC<AnnouncementTickerProps> = ({ onPressAction }) => {
   const { storeSettings, navigateTo } = useApp();
 
-  const customText = storeSettings?.announcementText?.trim();
+  // Extract and prepare announcements: filter active and sort by order
+  const activeAnnouncements = useMemo<AnnouncementItem[]>(() => {
+    const rawList = storeSettings?.announcements;
+    if (Array.isArray(rawList) && rawList.length > 0) {
+      const filtered = rawList
+        .filter(item => item.isActive !== false && item.text && item.text.trim().length > 0)
+        .sort((a, b) => (a.order || 0) - (b.order || 0));
+      
+      if (filtered.length > 0) {
+        return filtered;
+      }
+    }
 
-  // Curated list of announcements combining live store announcement and verified store perks
-  const announcementItems = [
-    ...(customText ? [{ id: 'custom', icon: Sparkles, text: customText, isHighlight: true }] : []),
-    { id: 'shipping', icon: Truck, text: 'شحن سريع لباب منزلك في غرايفسفالد والمناطق المجاورة' },
-    { id: 'quality', icon: ShieldCheck, text: 'أجود المنتجات العربية والعالمية طازجة وبأفضل الأسعار' },
-    { id: 'offers', icon: Tag, text: 'تخفيضات أسبوعية وعروض حصرية متجددة في متجر بركة ماركت 24' }
-  ];
+    // Fallback: If legacy announcementText exists and differs from defaults, wrap it
+    const legacyText = storeSettings?.announcementText?.trim();
+    if (legacyText && !rawList) {
+      return [
+        { id: 'legacy-ann', text: legacyText, isActive: true, order: 1, icon: 'sparkles', isHighlight: true },
+        ...DEFAULT_ANNOUNCEMENTS
+      ];
+    }
+
+    // Default fallback
+    return DEFAULT_ANNOUNCEMENTS;
+  }, [storeSettings?.announcements, storeSettings?.announcementText]);
 
   const handleTickerClick = () => {
     if (onPressAction) {
@@ -26,6 +75,11 @@ export const AnnouncementTicker: React.FC<AnnouncementTickerProps> = ({ onPressA
       navigateTo('products');
     }
   };
+
+  // If literally no announcements are configured to show, don't break layout
+  if (activeAnnouncements.length === 0) {
+    return null;
+  }
 
   return (
     <div 
@@ -41,20 +95,20 @@ export const AnnouncementTicker: React.FC<AnnouncementTickerProps> = ({ onPressA
       {/* Infinite loop track */}
       <div className="flex overflow-hidden">
         <div className="animate-marquee-rtl flex items-center gap-8 py-0.5">
-          {/* Double repetition ensures seamless continuous loop */}
-          {[...announcementItems, ...announcementItems, ...announcementItems].map((item, index) => {
-            const Icon = item.icon;
+          {/* Triple repetition ensures seamless continuous loop across all screen sizes */}
+          {[...activeAnnouncements, ...activeAnnouncements, ...activeAnnouncements].map((item, index) => {
+            const Icon = getAnnouncementIcon(item.icon);
             return (
               <div 
                 key={`${item.id}-${index}`}
                 className="flex items-center gap-2 whitespace-nowrap text-xs font-semibold"
               >
-                <div className={`w-5 h-5 rounded-full flex items-center justify-center ${
-                  item.isHighlight ? 'bg-amber-400 text-stone-950' : 'bg-white/15 text-[#86EFAC]'
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${
+                  item.isHighlight ? 'bg-amber-400 text-stone-950 shadow-xs' : 'bg-white/15 text-[#86EFAC]'
                 }`}>
                   <Icon className="w-3 h-3" />
                 </div>
-                <span className={item.isHighlight ? 'text-amber-200 font-bold' : 'text-emerald-50'}>
+                <span className={item.isHighlight ? 'text-amber-200 font-bold tracking-wide' : 'text-emerald-50'}>
                   {item.text}
                 </span>
                 <span className="text-white/30 text-xs mr-4">•</span>
@@ -66,3 +120,4 @@ export const AnnouncementTicker: React.FC<AnnouncementTickerProps> = ({ onPressA
     </div>
   );
 };
+

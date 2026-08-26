@@ -41,18 +41,18 @@ export const mapAuthErrorToArabic = (errorCode: string): string => {
     case 'auth/user-disabled':
       return 'تم تعطيل هذا الحساب. يرجى التواصل مع إدارة المتجر.';
     case 'auth/user-not-found':
-      return 'لا يوجد حساب مسجل بهذا البريد الإلكتروني.';
+      return 'هذا البريد الإلكتروني غير مسجل لدينا. يرجى إنشاء حساب جديد.';
     case 'auth/wrong-password':
     case 'auth/invalid-credential':
-      return 'كلمة المرور أو البريد الإلكتروني غير صحيح.';
+      return 'تعذر تسجيل الدخول. تأكد من البريد الإلكتروني وكلمة المرور، وإذا لم يكن لديك حساب بعد يمكنك إنشاء حساب جديد.';
     case 'auth/email-already-in-use':
-      return 'البريد الإلكتروني مسجل مسبقاً، يمكنك تسجيل الدخول به.';
+      return 'هذا البريد الإلكتروني مسجل مسبقاً بالفعل، يرجى تسجيل الدخول.';
     case 'auth/weak-password':
       return 'كلمة المرور ضعيفة. يجب أن تتكون من 6 أحرف أو أرقام على الأقل.';
     case 'auth/operation-not-allowed':
       return 'تسجيل الدخول عبر البريد الإلكتروني غير مفعّل حالياً في إعدادات Firebase.';
     case 'auth/too-many-requests':
-      return 'تم حظر المحاولات مؤقتاً لكثرة المحاولات الخاطئة. يرجى المحاولة بعد قليل.';
+      return 'تم حظر المحاولات مؤقتاً لكثرة المحاولات غير الصحيحة. يرجى المحاولة بعد قليل.';
     case 'auth/network-request-failed':
       return 'تعذر الاتصال بالخادم. يرجى التحقق من اتصالك بالإنترنت.';
     case 'auth/unauthorized-domain':
@@ -245,11 +245,28 @@ class AuthService {
   }
 
   // 1. Firebase Email & Password Registration (Role is strictly customer)
-  async register(name: string, email: string, phone: string, password: string, referralCodeInput?: string): Promise<User> {
+  async register(
+    name: string, 
+    email: string, 
+    phone: string, 
+    password: string, 
+    referralCodeInput?: string,
+    consent?: {
+      termsAccepted: boolean;
+      privacyAccepted: boolean;
+      termsVersion?: string;
+      privacyVersion?: string;
+    }
+  ): Promise<User> {
     const cleanEmail = email.trim();
     const cleanName = name.trim();
     const cleanPhone = phone.trim();
     const cleanReferralCode = referralCodeInput?.trim().toUpperCase() || '';
+
+    // Enforce legal consent requirement
+    if (consent && (!consent.termsAccepted || !consent.privacyAccepted)) {
+      throw new Error('يجب قراءة والموافقة على الشروط والأحكام وسياسة الخصوصية لإنشاء الحساب.');
+    }
 
     let referrerUser: User | null = null;
     if (cleanReferralCode) {
@@ -282,6 +299,8 @@ class AuthService {
 
       // Assign role (admin if super admin email, otherwise customer)
       const role = isSuperAdminEmail(cleanEmail) ? 'admin' : 'customer';
+      const nowIso = new Date().toISOString();
+
       const newUser: User = {
         id: fbUser.uid,
         name: cleanName,
@@ -292,7 +311,12 @@ class AuthService {
         address: '',
         referralCode: generatedMyReferralCode,
         ...(referrerUser ? { referredBy: referrerUser.id } : {}),
-        createdAt: new Date().toISOString()
+        termsAccepted: consent?.termsAccepted ?? true,
+        privacyAccepted: consent?.privacyAccepted ?? true,
+        termsVersion: consent?.termsVersion || '1.0',
+        privacyVersion: consent?.privacyVersion || '1.0',
+        acceptedAt: nowIso,
+        createdAt: nowIso
       };
 
       const userDocRef = doc(collections.users, fbUser.uid);
@@ -414,13 +438,17 @@ class AuthService {
     this.notifyListeners();
   }
 
-  // 5. Update Profile (Name, Phone, Address, Street, HouseNumber, PLZ, City, DeliveryNotes) - Preserves 'customer' role strictly
+  // 5. Update Profile (Name, Phone, Address, Street, HouseNumber, BellName, Floor, Apartment, PLZ, City, DeliveryNotes) - Preserves 'customer' role strictly
   async updateProfile(updates: { 
     name?: string; 
     phone?: string; 
     address?: string; 
     street?: string;
     houseNumber?: string;
+    bellName?: string;
+    floor?: string;
+    apartment?: string;
+    cityAreaId?: string;
     city?: string;
     plz?: string;
     postalCode?: string;
@@ -436,6 +464,10 @@ class AuthService {
     if (updates.address !== undefined) sanitizedUpdates.address = updates.address.trim();
     if (updates.street !== undefined) sanitizedUpdates.street = updates.street.trim();
     if (updates.houseNumber !== undefined) sanitizedUpdates.houseNumber = updates.houseNumber.trim();
+    if (updates.bellName !== undefined) sanitizedUpdates.bellName = updates.bellName.trim();
+    if (updates.floor !== undefined) sanitizedUpdates.floor = updates.floor.trim();
+    if (updates.apartment !== undefined) sanitizedUpdates.apartment = updates.apartment.trim();
+    if (updates.cityAreaId !== undefined) sanitizedUpdates.cityAreaId = updates.cityAreaId.trim();
     if (updates.city !== undefined) sanitizedUpdates.city = updates.city.trim();
     if (updates.plz !== undefined) sanitizedUpdates.plz = updates.plz.trim();
     if (updates.postalCode !== undefined) sanitizedUpdates.postalCode = updates.postalCode.trim();

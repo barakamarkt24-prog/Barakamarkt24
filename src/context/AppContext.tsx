@@ -81,8 +81,22 @@ interface AppContextType {
   currentUser: User | null;
   isLoadingAuth: boolean;
   isAuthReady: boolean;
+  authRedirectTarget: Screen | null;
+  setAuthRedirectTarget: (screen: Screen | null) => void;
   login: (email: string, password: string) => Promise<User>;
-  register: (name: string, email: string, phone: string, password: string, referralCode?: string) => Promise<User>;
+  register: (
+    name: string, 
+    email: string, 
+    phone: string, 
+    password: string, 
+    referralCode?: string,
+    consent?: {
+      termsAccepted: boolean;
+      privacyAccepted: boolean;
+      termsVersion?: string;
+      privacyVersion?: string;
+    }
+  ) => Promise<User>;
   sendPasswordReset: (email: string) => Promise<void>;
   updateProfile: (updates: { 
     name?: string; 
@@ -150,6 +164,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // User
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [authRedirectTarget, setAuthRedirectTarget] = useState<Screen | null>(null);
 
   // Toast
   const [toast, setToast] = useState<string | null>(null);
@@ -221,6 +236,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             showToast('تم ترقية حسابك إلى سائق توصيل 🚚');
           }
         }
+      }
+
+      // Sync active device push token with current user credentials
+      if (user) {
+        fcmService.syncAuthUser(user).catch(() => {});
       }
     });
 
@@ -726,7 +746,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Push Notifications (FCM Readiness)
   const requestPushNotifications = async () => {
-    const token = await fcmService.requestPermissionAndGetToken(undefined, currentUser?.id);
+    const token = await fcmService.requestPermissionAndGetToken(undefined, currentUser);
     if (token) {
       showToast('تم تفعيل الإشعارات بنجاح');
     }
@@ -742,8 +762,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return user;
   };
 
-  const register = async (name: string, email: string, phone: string, password: string, referralCode?: string) => {
-    const user = await authService.register(name, email, phone, password, referralCode);
+  const register = async (
+    name: string, 
+    email: string, 
+    phone: string, 
+    password: string, 
+    referralCode?: string,
+    consent?: {
+      termsAccepted: boolean;
+      privacyAccepted: boolean;
+      termsVersion?: string;
+      privacyVersion?: string;
+    }
+  ) => {
+    const user = await authService.register(name, email, phone, password, referralCode, consent);
     setCurrentUser(user);
     showToast(`تم إنشاء حسابك بنجاح`);
     await reloadCategories();
@@ -829,6 +861,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isInWishlist,
         requestPushNotifications,
         currentUser,
+        authRedirectTarget,
+        setAuthRedirectTarget,
         login,
         register,
         sendPasswordReset,

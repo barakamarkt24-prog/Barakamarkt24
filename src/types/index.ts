@@ -9,7 +9,8 @@ export type Screen =
   | 'orders'
   | 'wishlist'
   | 'driver'
-  | 'admin';
+  | 'admin'
+  | 'legal';
 
 export type BottomNavTab = 'home' | 'categories' | 'cart' | 'orders' | 'profile' | 'driver';
 
@@ -140,6 +141,10 @@ export interface User {
   address?: string;
   street?: string;
   houseNumber?: string;
+  bellName?: string;
+  floor?: string;
+  apartment?: string;
+  cityAreaId?: string;
   city?: string;
   plz?: string;
   postalCode?: string;
@@ -150,6 +155,13 @@ export interface User {
   createdAt?: string;
   isActive?: boolean;
   vehicleInfo?: string;
+
+  // Legal Policies Acceptance
+  termsAccepted?: boolean;
+  privacyAccepted?: boolean;
+  termsVersion?: string;
+  privacyVersion?: string;
+  acceptedAt?: string;
 }
 
 export type PaymentMethod = 'cash_on_delivery' | 'cod' | 'card' | 'paypal' | 'klarna' | 'bank_transfer' | 'apple_pay';
@@ -188,6 +200,15 @@ export interface OrderTimelineItem {
 
 export type CustomerNoteStatus = 'none' | 'open' | 'replied' | 'resolved';
 
+export interface CustomerNoteMessage {
+  id: string;
+  sender: 'customer' | 'admin' | 'driver';
+  senderName: string;
+  text: string;
+  createdAt: string;
+  timestamp?: string;
+}
+
 export interface Order {
   id: string;
   orderId?: string;
@@ -195,6 +216,12 @@ export interface Order {
   customerName?: string;
   phone: string;
   address: string;
+  street?: string;
+  houseNumber?: string;
+  bellName?: string;
+  floor?: string;
+  apartment?: string;
+  cityAreaId?: string;
   city?: string;
   cityId?: string;
   branchId?: string;
@@ -231,6 +258,7 @@ export interface Order {
   customerNoteStatus?: CustomerNoteStatus;
   adminReply?: string;
   adminReplyCreatedAt?: string;
+  customerNoteMessages?: CustomerNoteMessage[];
 }
 
 export interface OrderItem {
@@ -262,6 +290,19 @@ export interface Favorite {
   userId: string;
   productId: string;
   createdAt: string;
+}
+
+export type AnnouncementIconType = 'sparkles' | 'truck' | 'shield' | 'tag' | 'flame' | 'bell' | 'gift' | 'percent';
+
+export interface AnnouncementItem {
+  id: string;
+  text: string;
+  isActive: boolean;
+  order: number;
+  icon?: AnnouncementIconType | string;
+  isHighlight?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface Coupon {
@@ -370,5 +411,25 @@ export interface DeliveryZone {
   estimatedTime?: string;
   createdAt?: string;
   updatedAt?: string;
+}
+
+export interface CityArea {
+  id: string;
+  cityId: string;
+  nameAr: string;
+  nameDe: string;
+  plz: string;
+  isActive: boolean;
+  sortOrder?: number;
+}
+
+export interface DeliveryStreet {
+  id?: string;
+  name: string;
+  cityAreaId: string;
+  plz: string;
+  cityId?: string;
+  zoneNameAr?: string;
+  zoneNameDe?: string;
 }
 

@@ -70,7 +70,11 @@ export function getAdminFirestore(): Firestore | null {
   const app = getFirebaseAdminApp();
   if (app) {
     try {
-      adminFirestoreInstance = getFirestore(app);
+      if (firebaseConfigData.firestoreDatabaseId) {
+        adminFirestoreInstance = getFirestore(app, firebaseConfigData.firestoreDatabaseId);
+      } else {
+        adminFirestoreInstance = getFirestore(app);
+      }
       return adminFirestoreInstance;
     } catch (e) {
       console.warn("[FirebaseAdmin] Firestore instance init warning:", e);
@@ -161,17 +165,22 @@ export async function sendFCMV1Message(token: string, payload: PushNotificationP
           screen: payload.role === "admin" ? "admin" : payload.role === "driver" ? "driver" : "orders"
         },
         webpush: {
+          headers: {
+            Urgency: "high"
+          },
           notification: {
             title: payload.title,
             body: payload.body,
-            icon: "/icons/icon-192x192.png",
+            icon: payload.icon || "/icons/icon-192x192.png",
             badge: "/icons/badge-72x72.png",
             dir: "rtl",
             lang: "ar",
-            tag: payload.orderId ? `order-${payload.orderId}` : `baraka-${Date.now()}`
+            tag: payload.orderId ? `order-${payload.orderId}` : `baraka-${Date.now()}`,
+            renotify: true,
+            requireInteraction: false
           },
           fcmOptions: {
-            link: payload.url || (payload.role === "admin" ? "/?screen=admin" : payload.role === "driver" ? "/?screen=driver" : "/?screen=orders")
+            link: payload.url || (payload.role === "admin" ? "/?screen=admin" : payload.role === "driver" ? "/?screen=driver" : payload.orderId ? `/?screen=orders&orderId=${payload.orderId}` : "/?screen=orders")
           }
         }
       };

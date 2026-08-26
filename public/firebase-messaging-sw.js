@@ -14,6 +14,20 @@ const firebaseConfig = {
   messagingSenderId: "774602841270"
 };
 
+// Cache for recent notification IDs to prevent duplicate alerts
+const recentNotifIds = new Set();
+
+function showSafeNotification(title, options) {
+  const dedupKey = `${title}_${options.tag || ''}_${options.body || ''}`;
+  if (recentNotifIds.has(dedupKey)) {
+    return Promise.resolve();
+  }
+  recentNotifIds.add(dedupKey);
+  setTimeout(() => recentNotifIds.delete(dedupKey), 10000);
+
+  return self.registration.showNotification(title, options);
+}
+
 try {
   if (firebase.apps.length === 0) {
     firebase.initializeApp(firebaseConfig);
@@ -26,11 +40,12 @@ try {
     console.log('[firebase-messaging-sw.js] Received background message:', payload);
 
     const notificationTitle = payload.notification?.title || payload.data?.title || 'إشعار جديد من بركة ماركت 24';
+    const tag = payload.data?.orderId ? `order-${payload.data.orderId}` : (payload.data?.tag || `baraka-${Date.now()}`);
     const notificationOptions = {
       body: payload.notification?.body || payload.data?.message || payload.data?.body || '',
       icon: payload.notification?.icon || payload.data?.icon || '/icons/icon-192x192.png',
       badge: '/icons/badge-72x72.png',
-      tag: payload.data?.orderId || payload.data?.tag || `baraka-${Date.now()}`,
+      tag: tag,
       renotify: true,
       vibrate: [200, 100, 200],
       dir: 'rtl',
@@ -38,7 +53,7 @@ try {
       data: {
         url: payload.data?.url || '/',
         orderId: payload.data?.orderId || '',
-        screen: payload.data?.screen || 'home',
+        screen: payload.data?.screen || (payload.data?.role === 'admin' ? 'admin' : payload.data?.role === 'driver' ? 'driver' : 'orders'),
         type: payload.data?.type || 'order',
         timestamp: Date.now()
       },
@@ -54,7 +69,7 @@ try {
       ]
     };
 
-    return self.registration.showNotification(notificationTitle, notificationOptions);
+    return showSafeNotification(notificationTitle, notificationOptions);
   });
 } catch (e) {
   console.warn('[firebase-messaging-sw.js] Firebase compat initialization notice:', e);

@@ -159,6 +159,10 @@ Requirements:
           snapshot.forEach((docSnap: any) => {
             const data = docSnap.data();
             if (data?.token && typeof data.token === "string" && data.token.trim()) {
+              // Respect user preferences
+              if (data.enabled === false) return;
+              if (type === 'promo' && data.settings?.offers === false) return;
+              if (type === 'order' && data.settings?.orderUpdates === false) return;
               targetTokens.push(data.token.trim());
             }
           });
@@ -228,7 +232,49 @@ Requirements:
         return res.status(400).json({ error: "العنوان والرسالة مطلوبان للإشعار الجماعي" });
       }
 
-      console.log(`[Notification Broadcast] Broadcasting "${title}" to target:${targetRole}`);
+      console.log(`[Notification Broadcast] Broadcasting "${title}" to target: ${targetRole}`);
+
+      const payload: PushNotificationPayload = {
+        title: title.trim(),
+        body: message.trim(),
+        type: type || "promo",
+        url: couponCode ? `/?coupon=${couponCode}` : "/"
+      };
+
+      let targetTokens: string[] = [];
+      const adminFirestore = getAdminFirestore();
+      if (adminFirestore) {
+        try {
+          const tokensRef = adminFirestore.collection("fcmTokens");
+          let snapshot: any;
+          if (targetRole === "admin" || targetRole === "driver" || targetRole === "customer") {
+            snapshot = await tokensRef.where("role", "==", targetRole).where("enabled", "==", true).get();
+          } else {
+            snapshot = await tokensRef.where("enabled", "==", true).limit(200).get();
+          }
+
+          snapshot.forEach((docSnap: any) => {
+            const data = docSnap.data();
+            if (data?.token && typeof data.token === "string" && data.token.trim()) {
+              if (data.enabled === false) return;
+              if (type === 'promo' && data.settings?.offers === false) return;
+              targetTokens.push(data.token.trim());
+            }
+          });
+        } catch (dbErr) {
+          console.warn("[Notification Broadcast] Could not query Firestore tokens:", dbErr);
+        }
+      }
+
+      let successCount = 0;
+      for (const t of Array.from(new Set(targetTokens))) {
+        try {
+          const sendResult = await sendFCMV1Message(t, payload);
+          if (sendResult.success) successCount++;
+        } catch (e) {
+          // Ignore individual errors during broadcast
+        }
+      }
 
       return res.json({
         success: true,
@@ -237,6 +283,8 @@ Requirements:
         title,
         message,
         couponCode: couponCode || null,
+        tokensCount: targetTokens.length,
+        deliveredCount: successCount,
         timestamp: new Date().toISOString()
       });
     } catch (error: any) {

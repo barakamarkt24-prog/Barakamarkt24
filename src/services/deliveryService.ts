@@ -11,7 +11,7 @@ import {
   Unsubscribe
 } from 'firebase/firestore';
 import { db, collections } from './firebaseConfig';
-import { City, Branch, DeliveryZone } from '../types';
+import { City, Branch, DeliveryZone, CityArea, DeliveryStreet } from '../types';
 
 // Default initial city
 export const DEFAULT_CITY: City = {
@@ -66,8 +66,8 @@ export const DEFAULT_DELIVERY_ZONES: DeliveryZone[] = [
     cityId: 'greifswald',
     branchId: 'branch-greifswald-main',
     plz: '17493',
-    nameAr: 'غرايفسفالد - إيلدينا وفيك ولاديبو',
-    nameDe: 'Greifswald Eldena, Wieck & Ladebow',
+    nameAr: 'غرايفسفالد - إيلدينا وفيك ولاديبو وريمس',
+    nameDe: 'Greifswald Eldena, Wieck, Ladebow & Riems',
     isActive: true,
     estimatedTime: '35 - 55 دقيقة',
     createdAt: '2026-08-01'
@@ -95,6 +95,216 @@ export const DEFAULT_DELIVERY_ZONES: DeliveryZone[] = [
     createdAt: '2026-08-01'
   }
 ];
+
+// Supported City Areas / Districts in Greifswald & Vicinity
+export const DEFAULT_CITY_AREAS: CityArea[] = [
+  {
+    id: 'schonwalde',
+    cityId: 'greifswald',
+    nameAr: 'شونفالده (Schönwalde I & II)',
+    nameDe: 'Schönwalde I & II',
+    plz: '17491',
+    isActive: true,
+    sortOrder: 1
+  },
+  {
+    id: 'wieck',
+    cityId: 'greifswald',
+    nameAr: 'فيك والميناء (Wieck)',
+    nameDe: 'Wieck',
+    plz: '17493',
+    isActive: true,
+    sortOrder: 2
+  },
+  {
+    id: 'riems',
+    cityId: 'greifswald',
+    nameAr: 'جزيرة ريمس (Insel Riems)',
+    nameDe: 'Insel Riems',
+    plz: '17493',
+    isActive: true,
+    sortOrder: 3
+  },
+  {
+    id: 'innenstadt',
+    cityId: 'greifswald',
+    nameAr: 'المركز والبلدة القديمة (Innenstadt / Zentrum)',
+    nameDe: 'Innenstadt / Fleischervorstadt',
+    plz: '17489',
+    isActive: true,
+    sortOrder: 4
+  },
+  {
+    id: 'eldena-ladebow',
+    cityId: 'greifswald',
+    nameAr: 'إيلدينا ولاديبو (Eldena & Ladebow)',
+    nameDe: 'Eldena & Ladebow',
+    plz: '17493',
+    isActive: true,
+    sortOrder: 5
+  },
+  {
+    id: 'neuenkirchen',
+    cityId: 'greifswald',
+    nameAr: 'نوينكيرشن (Neuenkirchen)',
+    nameDe: 'Neuenkirchen b. Greifswald',
+    plz: '17498',
+    isActive: true,
+    sortOrder: 6
+  },
+  {
+    id: 'wackerow',
+    cityId: 'greifswald',
+    nameAr: 'فاكيرو (Wackerow)',
+    nameDe: 'Wackerow',
+    plz: '17498',
+    isActive: true,
+    sortOrder: 7
+  },
+  {
+    id: 'weitenhagen',
+    cityId: 'greifswald',
+    nameAr: 'فايتنهاغن (Weitenhagen)',
+    nameDe: 'Weitenhagen',
+    plz: '17498',
+    isActive: true,
+    sortOrder: 8
+  },
+  {
+    id: 'karlsburg-zussow',
+    cityId: 'greifswald',
+    nameAr: 'كارلسبورغ وتسوسو (Karlsburg & Züssow)',
+    nameDe: 'Karlsburg, Züssow & Ranzin',
+    plz: '17495',
+    isActive: true,
+    sortOrder: 9
+  }
+];
+
+// Verified Real Streets for each Supported City Area in Greifswald & Vicinity
+export const DEFAULT_DELIVERY_STREETS: DeliveryStreet[] = [
+  // 1. Schönwalde (17491)
+  { name: 'Makarenkostraße', cityAreaId: 'schonwalde', plz: '17491', cityId: 'greifswald', zoneNameAr: 'شونفالده الثانية' },
+  { name: 'Hans-Beimler-Straße', cityAreaId: 'schonwalde', plz: '17491', cityId: 'greifswald', zoneNameAr: 'شونفالده الأولى' },
+  { name: 'Karl-Liebknecht-Ring', cityAreaId: 'schonwalde', plz: '17491', cityId: 'greifswald', zoneNameAr: 'شونفالده الأولى' },
+  { name: 'Ernst-Thälmann-Ring', cityAreaId: 'schonwalde', plz: '17491', cityId: 'greifswald', zoneNameAr: 'شونفالده الأولى' },
+  { name: 'Anklamer Straße', cityAreaId: 'schonwalde', plz: '17491', cityId: 'greifswald', zoneNameAr: 'الجنوب وشونفالده' },
+  { name: 'Tolstoistraße', cityAreaId: 'schonwalde', plz: '17491', cityId: 'greifswald', zoneNameAr: 'شونفالده الثانية' },
+  { name: 'Pappelallee', cityAreaId: 'schonwalde', plz: '17491', cityId: 'greifswald', zoneNameAr: 'الجنوب وشونفالده' },
+  { name: 'Dubnaring', cityAreaId: 'schonwalde', plz: '17491', cityId: 'greifswald', zoneNameAr: 'شونفالده الثانية' },
+  { name: 'Schönwalder Landstraße', cityAreaId: 'schonwalde', plz: '17491', cityId: 'greifswald', zoneNameAr: 'شونفالده' },
+  { name: 'Koitenhäger Landstraße', cityAreaId: 'schonwalde', plz: '17491', cityId: 'greifswald', zoneNameAr: 'الجنوب الشرقي' },
+  { name: 'Paul-Suhr-Straße', cityAreaId: 'schonwalde', plz: '17491', cityId: 'greifswald', zoneNameAr: 'شونفالده' },
+  { name: 'Heinrich-Hertz-Straße', cityAreaId: 'schonwalde', plz: '17491', cityId: 'greifswald', zoneNameAr: 'المنطقة العلمية' },
+  { name: 'Einsteinstraße', cityAreaId: 'schonwalde', plz: '17491', cityId: 'greifswald', zoneNameAr: 'شونفالده الأولى' },
+  { name: 'Erich-Weinert-Straße', cityAreaId: 'schonwalde', plz: '17491', cityId: 'greifswald', zoneNameAr: 'شونفالده الأولى' },
+  { name: 'Otto-Grotewohl-Straße', cityAreaId: 'schonwalde', plz: '17491', cityId: 'greifswald', zoneNameAr: 'شونفالده الثانية' },
+  { name: 'Max-Planck-Straße', cityAreaId: 'schonwalde', plz: '17491', cityId: 'greifswald', zoneNameAr: 'المنطقة التكنولوجية' },
+  { name: 'Johannes-Stelling-Straße', cityAreaId: 'schonwalde', plz: '17491', cityId: 'greifswald', zoneNameAr: 'شونفالده' },
+
+  // 2. Wieck (17493)
+  { name: 'Dorfstraße', cityAreaId: 'wieck', plz: '17493', cityId: 'greifswald', zoneNameAr: 'فيك والميناء' },
+  { name: 'Yachtweg', cityAreaId: 'wieck', plz: '17493', cityId: 'greifswald', zoneNameAr: 'فيك' },
+  { name: 'Am Ryck', cityAreaId: 'wieck', plz: '17493', cityId: 'greifswald', zoneNameAr: 'فيك ونهر ريك' },
+  { name: 'Boddenweg', cityAreaId: 'wieck', plz: '17493', cityId: 'greifswald', zoneNameAr: 'فيك وإيلدينا' },
+  { name: 'Ladebower Chaussee', cityAreaId: 'wieck', plz: '17493', cityId: 'greifswald', zoneNameAr: 'فيك ولاديبو' },
+  { name: 'Rosenstraße', cityAreaId: 'wieck', plz: '17493', cityId: 'greifswald', zoneNameAr: 'فيك' },
+  { name: 'Strandweg', cityAreaId: 'wieck', plz: '17493', cityId: 'greifswald', zoneNameAr: 'شاطئ فيك' },
+  { name: 'Kirchstraße', cityAreaId: 'wieck', plz: '17493', cityId: 'greifswald', zoneNameAr: 'كنيسة فيك' },
+  { name: 'Fischerstraße', cityAreaId: 'wieck', plz: '17493', cityId: 'greifswald', zoneNameAr: 'قرية الصيادين فيك' },
+  { name: 'Wilhelm-Holtz-Straße', cityAreaId: 'wieck', plz: '17493', cityId: 'greifswald', zoneNameAr: 'فيك' },
+
+  // 3. Insel Riems (17493)
+  { name: 'An der Wiek', cityAreaId: 'riems', plz: '17493', cityId: 'greifswald', zoneNameAr: 'جزيرة ريمس' },
+  { name: 'Boddenblick', cityAreaId: 'riems', plz: '17493', cityId: 'greifswald', zoneNameAr: 'جزيرة ريمس' },
+  { name: 'Hauptstraße', cityAreaId: 'riems', plz: '17493', cityId: 'greifswald', zoneNameAr: 'جزيرة ريمس' },
+  { name: 'Riemser Weg', cityAreaId: 'riems', plz: '17493', cityId: 'greifswald', zoneNameAr: 'طريق ريمس' },
+  { name: 'Am Hafen Riems', cityAreaId: 'riems', plz: '17493', cityId: 'greifswald', zoneNameAr: 'ميناء ريمس' },
+  { name: 'Sundpromenade', cityAreaId: 'riems', plz: '17493', cityId: 'greifswald', zoneNameAr: 'كورنيش ريمس' },
+  { name: 'Zum Hafen', cityAreaId: 'riems', plz: '17493', cityId: 'greifswald', zoneNameAr: 'مرفأ ريمس' },
+
+  // 4. Innenstadt & Fleischervorstadt (17489)
+  { name: 'Lange Straße', cityAreaId: 'innenstadt', plz: '17489', cityId: 'greifswald', zoneNameAr: 'البلدة القديمة والمركز' },
+  { name: 'Lange Reihe', cityAreaId: 'innenstadt', plz: '17489', cityId: 'greifswald', zoneNameAr: 'الميناء والبلدة القديمة' },
+  { name: 'Domstraße', cityAreaId: 'innenstadt', plz: '17489', cityId: 'greifswald', zoneNameAr: 'مركز المدينة' },
+  { name: 'Fleischmacherstraße', cityAreaId: 'innenstadt', plz: '17489', cityId: 'greifswald', zoneNameAr: 'مركز المدينة' },
+  { name: 'Knopfstraße', cityAreaId: 'innenstadt', plz: '17489', cityId: 'greifswald', zoneNameAr: 'البلدة القديمة' },
+  { name: 'Steinbeckerstraße', cityAreaId: 'innenstadt', plz: '17489', cityId: 'greifswald', zoneNameAr: 'البلدة القديمة' },
+  { name: 'Schuhhagen', cityAreaId: 'innenstadt', plz: '17489', cityId: 'greifswald', zoneNameAr: 'وسط البلد' },
+  { name: 'Baderstraße', cityAreaId: 'innenstadt', plz: '17489', cityId: 'greifswald', zoneNameAr: 'وسط البلد' },
+  { name: 'Fischstraße', cityAreaId: 'innenstadt', plz: '17489', cityId: 'greifswald', zoneNameAr: 'البلدة القديمة' },
+  { name: 'Bachstraße', cityAreaId: 'innenstadt', plz: '17489', cityId: 'greifswald', zoneNameAr: 'فلايشر فورشتات' },
+  { name: 'Rakower Straße', cityAreaId: 'innenstadt', plz: '17489', cityId: 'greifswald', zoneNameAr: 'فلايشر فورشتات' },
+  { name: 'Marienstraße', cityAreaId: 'innenstadt', plz: '17489', cityId: 'greifswald', zoneNameAr: 'مركز المدينة' },
+  { name: 'Am Hafen', cityAreaId: 'innenstadt', plz: '17489', cityId: 'greifswald', zoneNameAr: 'الميناء' },
+  { name: 'Stralsunder Straße', cityAreaId: 'innenstadt', plz: '17489', cityId: 'greifswald', zoneNameAr: 'شمال غرايفسفالد' },
+  { name: 'Friedrich-Loeffler-Straße', cityAreaId: 'innenstadt', plz: '17489', cityId: 'greifswald', zoneNameAr: 'المركز والجامعة' },
+  { name: 'Grimmer Straße', cityAreaId: 'innenstadt', plz: '17489', cityId: 'greifswald', zoneNameAr: 'غرب غرايفسفالد' },
+  { name: 'Brandteichstraße', cityAreaId: 'innenstadt', plz: '17489', cityId: 'greifswald', zoneNameAr: 'المنطقة الصناعية' },
+  { name: 'Fleischerstraße', cityAreaId: 'innenstadt', plz: '17489', cityId: 'greifswald', zoneNameAr: 'فلايشر فورشتات' },
+  { name: 'Brinkstraße', cityAreaId: 'innenstadt', plz: '17489', cityId: 'greifswald', zoneNameAr: 'فلايشر فورشتات' },
+  { name: 'Gützkower Straße', cityAreaId: 'innenstadt', plz: '17489', cityId: 'greifswald', zoneNameAr: 'الجنوب الغربي' },
+  { name: 'Mühlenstraße', cityAreaId: 'innenstadt', plz: '17489', cityId: 'greifswald', zoneNameAr: 'البلدة القديمة' },
+  { name: 'Brüggstraße', cityAreaId: 'innenstadt', plz: '17489', cityId: 'greifswald', zoneNameAr: 'البلدة القديمة' },
+  { name: 'Roßmühlenstraße', cityAreaId: 'innenstadt', plz: '17489', cityId: 'greifswald', zoneNameAr: 'المركز' },
+  { name: 'Wollweberstraße', cityAreaId: 'innenstadt', plz: '17489', cityId: 'greifswald', zoneNameAr: 'البلدة القديمة' },
+  { name: 'Loefflerstraße', cityAreaId: 'innenstadt', plz: '17489', cityId: 'greifswald', zoneNameAr: 'المركز' },
+  { name: 'Hansering', cityAreaId: 'innenstadt', plz: '17489', cityId: 'greifswald', zoneNameAr: 'حزام المركز والميناء' },
+  { name: 'Rotgerberstraße', cityAreaId: 'innenstadt', plz: '17489', cityId: 'greifswald', zoneNameAr: 'البلدة القديمة' },
+  { name: 'Martin-Luther-Straße', cityAreaId: 'innenstadt', plz: '17489', cityId: 'greifswald', zoneNameAr: 'المركز' },
+  { name: 'Kapaunenstraße', cityAreaId: 'innenstadt', plz: '17489', cityId: 'greifswald', zoneNameAr: 'البلدة القديمة' },
+  { name: 'Kuhstraße', cityAreaId: 'innenstadt', plz: '17489', cityId: 'greifswald', zoneNameAr: 'البلدة القديمة' },
+
+  // 5. Eldena & Ladebow (17493)
+  { name: 'Wolgaster Straße', cityAreaId: 'eldena-ladebow', plz: '17493', cityId: 'greifswald', zoneNameAr: 'إيلدينا' },
+  { name: 'Hainstraße', cityAreaId: 'eldena-ladebow', plz: '17493', cityId: 'greifswald', zoneNameAr: 'إيلدينا' },
+  { name: 'Max-Reimann-Straße', cityAreaId: 'eldena-ladebow', plz: '17493', cityId: 'greifswald', zoneNameAr: 'لاديبو' },
+  { name: 'Am Mühlenberg', cityAreaId: 'eldena-ladebow', plz: '17493', cityId: 'greifswald', zoneNameAr: 'إيلدينا' },
+  { name: 'Boddenweg', cityAreaId: 'eldena-ladebow', plz: '17493', cityId: 'greifswald', zoneNameAr: 'إيلدينا وفيك' },
+  { name: 'Klosterbruch', cityAreaId: 'eldena-ladebow', plz: '17493', cityId: 'greifswald', zoneNameAr: 'إيلدينا ودير إيلدينا' },
+  { name: 'Vorm Ausbau', cityAreaId: 'eldena-ladebow', plz: '17493', cityId: 'greifswald', zoneNameAr: 'إيلدينا' },
+  { name: 'Am Elisenhain', cityAreaId: 'eldena-ladebow', plz: '17493', cityId: 'greifswald', zoneNameAr: 'إيلدينا' },
+  { name: 'Hafenstraße Ladebow', cityAreaId: 'eldena-ladebow', plz: '17493', cityId: 'greifswald', zoneNameAr: 'ميناء لاديبو' },
+  { name: 'Mönchgutweg', cityAreaId: 'eldena-ladebow', plz: '17493', cityId: 'greifswald', zoneNameAr: 'إيلدينا' },
+
+  // 6. Neuenkirchen (17498)
+  { name: 'Marktplatz', cityAreaId: 'neuenkirchen', plz: '17498', cityId: 'greifswald', zoneNameAr: 'نوينكيرشن' },
+  { name: 'Chausseestraße', cityAreaId: 'neuenkirchen', plz: '17498', cityId: 'greifswald', zoneNameAr: 'نوينكيرشن' },
+  { name: 'Theodor-Körner-Straße', cityAreaId: 'neuenkirchen', plz: '17498', cityId: 'greifswald', zoneNameAr: 'نوينكيرشن' },
+  { name: 'Wampener Straße', cityAreaId: 'neuenkirchen', plz: '17498', cityId: 'greifswald', zoneNameAr: 'طريق فامبن' },
+  { name: 'Kiesweg', cityAreaId: 'neuenkirchen', plz: '17498', cityId: 'greifswald', zoneNameAr: 'نوينكيرشن' },
+  { name: 'Lindenstraße', cityAreaId: 'neuenkirchen', plz: '17498', cityId: 'greifswald', zoneNameAr: 'نوينكيرشن' },
+  { name: 'Gewerbegebiet', cityAreaId: 'neuenkirchen', plz: '17498', cityId: 'greifswald', zoneNameAr: 'المنطقة التجارية نوينكيرشن' },
+  { name: 'Am Sportplatz', cityAreaId: 'neuenkirchen', plz: '17498', cityId: 'greifswald', zoneNameAr: 'الملعب نوينكيرشن' },
+  { name: 'Dorfstraße', cityAreaId: 'neuenkirchen', plz: '17498', cityId: 'greifswald', zoneNameAr: 'قرية نوينكيرشن' },
+
+  // 7. Wackerow (17498)
+  { name: 'Wackerower Weg', cityAreaId: 'wackerow', plz: '17498', cityId: 'greifswald', zoneNameAr: 'طريق فاكيرو' },
+  { name: 'Dorfstraße', cityAreaId: 'wackerow', plz: '17498', cityId: 'greifswald', zoneNameAr: 'قرية فاكيرو' },
+  { name: 'Steffenshagener Weg', cityAreaId: 'wackerow', plz: '17498', cityId: 'greifswald', zoneNameAr: 'طريق شتيفنسهاغن' },
+  { name: 'Dreizehnhausen', cityAreaId: 'wackerow', plz: '17498', cityId: 'greifswald', zoneNameAr: 'درايتسينهاوزن' },
+  { name: 'Lindenallee', cityAreaId: 'wackerow', plz: '17498', cityId: 'greifswald', zoneNameAr: 'فاكيرو' },
+  { name: 'Jarmshagener Weg', cityAreaId: 'wackerow', plz: '17498', cityId: 'greifswald', zoneNameAr: 'طريق يارمسهاغن' },
+
+  // 8. Weitenhagen (17498)
+  { name: 'Lindenstraße', cityAreaId: 'weitenhagen', plz: '17498', cityId: 'greifswald', zoneNameAr: 'شارع الليندن فايتنهاغن' },
+  { name: 'Hauptstraße', cityAreaId: 'weitenhagen', plz: '17498', cityId: 'greifswald', zoneNameAr: 'الشارع الرئيسي فايتنهاغن' },
+  { name: 'Am Waldrand', cityAreaId: 'weitenhagen', plz: '17498', cityId: 'greifswald', zoneNameAr: 'حافة الغابة فايتنهاغن' },
+  { name: 'Forstweg', cityAreaId: 'weitenhagen', plz: '17498', cityId: 'greifswald', zoneNameAr: 'طريق الغابة' },
+  { name: 'Dorfstraße', cityAreaId: 'weitenhagen', plz: '17498', cityId: 'greifswald', zoneNameAr: 'قرية فايتنهاغن' },
+  { name: 'Potthäger Weg', cityAreaId: 'weitenhagen', plz: '17498', cityId: 'greifswald', zoneNameAr: 'طريق بوثاغن' },
+  { name: 'Helmshäger Weg', cityAreaId: 'weitenhagen', plz: '17498', cityId: 'greifswald', zoneNameAr: 'طريق هيلمسهاغن' },
+
+  // 9. Karlsburg & Züssow (17495)
+  { name: 'Bahnhofstraße', cityAreaId: 'karlsburg-zussow', plz: '17495', cityId: 'greifswald', zoneNameAr: 'شارع المحطة تسوسو' },
+  { name: 'Hauptstraße', cityAreaId: 'karlsburg-zussow', plz: '17495', cityId: 'greifswald', zoneNameAr: 'الشارع الرئيسي كارلسبورغ' },
+  { name: 'Schulstraße', cityAreaId: 'karlsburg-zussow', plz: '17495', cityId: 'greifswald', zoneNameAr: 'شارع المدرسة' },
+  { name: 'Lindenallee', cityAreaId: 'karlsburg-zussow', plz: '17495', cityId: 'greifswald', zoneNameAr: 'شارع الأشجار كارلسبورغ' },
+  { name: 'Gutshof', cityAreaId: 'karlsburg-zussow', plz: '17495', cityId: 'greifswald', zoneNameAr: 'قصر كارلسبورغ' },
+  { name: 'Zarnekower Straße', cityAreaId: 'karlsburg-zussow', plz: '17495', cityId: 'greifswald', zoneNameAr: 'طريق تسارنكوف' },
+  { name: 'Ranziner Straße', cityAreaId: 'karlsburg-zussow', plz: '17495', cityId: 'greifswald', zoneNameAr: 'طريق رانتسين' }
+];
+
 
 export interface PlzValidationResult {
   isValid: boolean;
@@ -363,6 +573,46 @@ class DeliveryService {
       console.error('Error updating branch:', e);
       return false;
     }
+  }
+
+  // ==========================================
+  // 6. City Areas & Street Autocomplete Logic
+  // ==========================================
+  getCityAreas(): CityArea[] {
+    return DEFAULT_CITY_AREAS.filter(a => a.isActive);
+  }
+
+  getAreaById(cityAreaId: string): CityArea | undefined {
+    return DEFAULT_CITY_AREAS.find(a => a.id === cityAreaId);
+  }
+
+  getAreaByPlz(plz: string): CityArea | undefined {
+    const clean = this.cleanPlz(plz);
+    return DEFAULT_CITY_AREAS.find(a => a.plz === clean);
+  }
+
+  getStreetsForArea(cityAreaId: string, queryText?: string): DeliveryStreet[] {
+    if (!cityAreaId) return [];
+    
+    // Filter strictly by the selected city area ID
+    const areaStreets = DEFAULT_DELIVERY_STREETS.filter(s => s.cityAreaId === cityAreaId);
+    
+    if (!queryText || !queryText.trim()) {
+      return areaStreets;
+    }
+
+    const cleanQuery = queryText.trim().toLowerCase();
+    return areaStreets.filter(s => 
+      s.name.toLowerCase().includes(cleanQuery) ||
+      (s.zoneNameAr && s.zoneNameAr.toLowerCase().includes(cleanQuery))
+    );
+  }
+
+  isStreetValidForArea(streetName: string, cityAreaId: string): boolean {
+    if (!streetName || !cityAreaId) return false;
+    const cleanStreet = streetName.trim().toLowerCase();
+    const areaStreets = DEFAULT_DELIVERY_STREETS.filter(s => s.cityAreaId === cityAreaId);
+    return areaStreets.some(s => s.name.toLowerCase() === cleanStreet);
   }
 }
 

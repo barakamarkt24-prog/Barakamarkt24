@@ -22,6 +22,7 @@ import { ProductsScreen } from './screens/ProductsScreen';
 import { AuthScreen } from './screens/AuthScreen';
 import { ProfileScreen } from './screens/ProfileScreen';
 import { DriverDashboardScreen } from './screens/DriverDashboardScreen';
+import { LegalScreen } from './screens/LegalScreen';
 import { ProductDetailModal } from './components/ProductDetailModal';
 
 export const App: React.FC = () => {
@@ -60,6 +61,8 @@ export const App: React.FC = () => {
         return <AuthScreen />;
       case 'profile':
         return <ProfileScreen />;
+      case 'legal':
+        return <LegalScreen />;
       default:
         return <HomeScreen />;
     }

@@ -30,7 +30,8 @@ import {
   CheckCircle,
   AlertTriangle,
   FileEdit,
-  X
+  X,
+  Bell
 } from 'lucide-react';
 import { Order, OrderStatus, CustomerNoteStatus } from '../types';
 import { orderService } from '../services/orderService';
@@ -796,9 +797,22 @@ export const OrdersScreen: React.FC = () => {
                   <MapPin className="w-3.5 h-3.5 text-[#005A36] mt-0.5" />
                   <span>عنوان التوصيل:</span>
                 </span>
-                <span className="text-stone-800 text-left font-medium max-w-[65%]">
-                  {order.address} {order.plz ? `(${order.plz} ${order.city || 'Greifswald'})` : order.city ? `(${order.city})` : ''}
-                </span>
+                <div className="text-left text-stone-800 font-medium max-w-[65%] space-y-0.5">
+                  <p className="font-bold text-stone-900">
+                    {order.address} {order.plz && !order.address.includes(order.plz) ? `(${order.plz} ${order.city || 'Greifswald'})` : ''}
+                  </p>
+                  {order.bellName && (
+                    <p className="text-[11px] text-amber-900 font-medium flex items-center gap-1">
+                      <Bell className="w-3 h-3 text-amber-600 shrink-0" />
+                      <span>الجرس: {order.bellName}</span>
+                    </p>
+                  )}
+                  {(order.floor || order.apartment) && (
+                    <p className="text-[10px] text-stone-500">
+                      {order.floor && `الطابق: ${order.floor}`} {order.apartment && ` | الشقة: ${order.apartment}`}
+                    </p>
+                  )}
+                </div>
               </div>
 
               <div className="flex items-center justify-between">

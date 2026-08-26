@@ -29,66 +29,17 @@ import {
   Home,
   Edit3,
   Search,
-  Loader2
+  Loader2,
+  Lock,
+  Bell,
+  Layers
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { orderService } from '../services/orderService';
-import { deliveryService } from '../services/deliveryService';
+import { deliveryService, DEFAULT_CITY_AREAS } from '../services/deliveryService';
 import { authService } from '../services/authService';
-import { CartItem, DeliveryZone } from '../types';
+import { CartItem, DeliveryZone, CityArea, DeliveryStreet } from '../types';
 import { OptimizedImage } from '../components/common/OptimizedImage';
-
-// Verified real delivery streets and zones in Greifswald
-const GREIFSWALD_STREETS = [
-  // 17489 - Innenstadt / Hafen / Fleischervorstadt
-  { name: 'Lange Straße', plz: '17489', zoneNameAr: 'البلدة القديمة والمركز' },
-  { name: 'Lange Reihe', plz: '17489', zoneNameAr: 'الميناء والبلدة القديمة' },
-  { name: 'Domstraße', plz: '17489', zoneNameAr: 'مركز المدينة' },
-  { name: 'Fleischmacherstraße', plz: '17489', zoneNameAr: 'مركز المدينة' },
-  { name: 'Knopfstraße', plz: '17489', zoneNameAr: 'البلدة القديمة' },
-  { name: 'Steinbeckerstraße', plz: '17489', zoneNameAr: 'البلدة القديمة' },
-  { name: 'Schuhhagen', plz: '17489', zoneNameAr: 'وسط البلد' },
-  { name: 'Baderstraße', plz: '17489', zoneNameAr: 'وسط البلد' },
-  { name: 'Fischstraße', plz: '17489', zoneNameAr: 'البلدة القديمة' },
-  { name: 'Bachstraße', plz: '17489', zoneNameAr: 'فلايشر فورشتات' },
-  { name: 'Rakower Straße', plz: '17489', zoneNameAr: 'فلايشر فورشتات' },
-  { name: 'Marienstraße', plz: '17489', zoneNameAr: 'مركز المدينة' },
-  { name: 'Am Hafen', plz: '17489', zoneNameAr: 'الميناء' },
-  { name: 'Stralsunder Straße', plz: '17489', zoneNameAr: 'شمال غرايفسفالد' },
-  { name: 'Friedrich-Loeffler-Straße', plz: '17489', zoneNameAr: 'المركز والجامعة' },
-  { name: 'Grimmer Straße', plz: '17489', zoneNameAr: 'غرب غرايفسفالد' },
-  { name: 'Brandteichstraße', plz: '17489', zoneNameAr: 'المنطقة الصناعية' },
-
-  // 17491 - Schönwalde I & II / Südstadt
-  { name: 'Makarenkostraße', plz: '17491', zoneNameAr: 'شونفالده الثانية' },
-  { name: 'Hans-Beimler-Straße', plz: '17491', zoneNameAr: 'شونفالده الأولى' },
-  { name: 'Karl-Liebknecht-Ring', plz: '17491', zoneNameAr: 'شونفالده الأولى' },
-  { name: 'Ernst-Thälmann-Ring', plz: '17491', zoneNameAr: 'شونفالده الأولى' },
-  { name: 'Anklamer Straße', plz: '17491', zoneNameAr: 'الجنوب وشونفالده' },
-  { name: 'Tolstoistraße', plz: '17491', zoneNameAr: 'شونفالده الثانية' },
-  { name: 'Pappelallee', plz: '17491', zoneNameAr: 'الجنوب' },
-  { name: 'Dubnaring', plz: '17491', zoneNameAr: 'شونفالده الثانية' },
-  { name: 'Schönwalder Landstraße', plz: '17491', zoneNameAr: 'شونفالده' },
-  { name: 'Koitenhäger Landstraße', plz: '17491', zoneNameAr: 'الجنوب الشرقي' },
-
-  // 17493 - Eldena, Wieck & Ladebow
-  { name: 'Wolgaster Straße', plz: '17493', zoneNameAr: 'إيلدينا' },
-  { name: 'Hainstraße', plz: '17493', zoneNameAr: 'إيلدينا' },
-  { name: 'Boddenweg', plz: '17493', zoneNameAr: 'إيلدينا وفيك' },
-  { name: 'Dorfstraße', plz: '17493', zoneNameAr: 'فيك والميناء' },
-  { name: 'Yachtweg', plz: '17493', zoneNameAr: 'فيك' },
-  { name: 'Max-Reimann-Straße', plz: '17493', zoneNameAr: 'لاديبو' },
-
-  // 17498 - Neuenkirchen / Wackerow / Weitenhagen
-  { name: 'Marktplatz', plz: '17498', zoneNameAr: 'نوينكيرشن' },
-  { name: 'Chausseestraße', plz: '17498', zoneNameAr: 'نوينكيرشن' },
-  { name: 'Lindenstraße', plz: '17498', zoneNameAr: 'فايتنهاغن' },
-  { name: 'Wackerower Weg', plz: '17498', zoneNameAr: 'فاكيرو' },
-
-  // 17495 - Karlsburg / Züssow / Ranzin
-  { name: 'Bahnhofstraße', plz: '17495', zoneNameAr: 'تسوسو' },
-  { name: 'Hauptstraße', plz: '17495', zoneNameAr: 'كارلسبورغ' }
-];
 
 export const CartScreen: React.FC = () => {
   const { 
@@ -100,6 +51,7 @@ export const CartScreen: React.FC = () => {
     cartCount, 
     navigateTo, 
     currentUser,
+    setAuthRedirectTarget,
     showToast,
     storeSettings,
     currencySymbol
@@ -107,8 +59,17 @@ export const CartScreen: React.FC = () => {
 
   const [isCheckingOut, setIsCheckingOut] = useState<boolean>(false);
   const [showCheckoutForm, setShowCheckoutForm] = useState<boolean>(false);
+  const [showLoginPromptModal, setShowLoginPromptModal] = useState<boolean>(false);
   const [orderSuccess, setOrderSuccess] = useState<string | null>(null);
-  const [orderSuccessData, setOrderSuccessData] = useState<{ plz: string; address: string; city: string; notes?: string } | null>(null);
+  const [orderSuccessData, setOrderSuccessData] = useState<{ 
+    plz: string; 
+    address: string; 
+    city: string; 
+    notes?: string;
+    bellName?: string;
+    street?: string;
+    houseNumber?: string;
+  } | null>(null);
 
   // Synchronous lock ref to prevent rapid double-clicks from submitting duplicate orders
   const isSubmittingRef = useRef<boolean>(false);
@@ -134,16 +95,37 @@ export const CartScreen: React.FC = () => {
     return methods;
   }, [storeSettings.paymentMethods]);
 
+  // Available City Areas / Districts in Greifswald
+  const cityAreas: CityArea[] = useMemo(() => deliveryService.getCityAreas(), []);
+
   // Customer order checkout fields
   const [customerName, setCustomerName] = useState<string>(currentUser?.name || '');
   const [customerPhone, setCustomerPhone] = useState<string>(currentUser?.phone || '');
   
   // Structured Address Fields
+  const [selectedCityAreaId, setSelectedCityAreaId] = useState<string>(() => {
+    if (currentUser?.cityAreaId) return currentUser.cityAreaId;
+    if (currentUser?.plz) {
+      const area = deliveryService.getAreaByPlz(currentUser.plz);
+      if (area) return area.id;
+    }
+    return 'innenstadt';
+  });
+
   const [customerStreet, setCustomerStreet] = useState<string>(() => {
     return currentUser?.street || currentUser?.address || '';
   });
   const [customerHouseNumber, setCustomerHouseNumber] = useState<string>(() => {
     return currentUser?.houseNumber || '';
+  });
+  const [customerBellName, setCustomerBellName] = useState<string>(() => {
+    return currentUser?.bellName || currentUser?.name || '';
+  });
+  const [customerFloor, setCustomerFloor] = useState<string>(() => {
+    return currentUser?.floor || '';
+  });
+  const [customerApartment, setCustomerApartment] = useState<string>(() => {
+    return currentUser?.apartment || '';
   });
   const [customerCity, setCustomerCity] = useState<string>(() => {
     return currentUser?.city || 'غرايفسفالد (Greifswald)';
@@ -169,6 +151,7 @@ export const CartScreen: React.FC = () => {
   const [streetSearchQuery, setStreetSearchQuery] = useState<string>('');
   const streetInputRef = useRef<HTMLInputElement | null>(null);
   const houseNumberInputRef = useRef<HTMLInputElement | null>(null);
+  const bellNameInputRef = useRef<HTMLInputElement | null>(null);
   const plzInputRef = useRef<HTMLInputElement | null>(null);
 
   // Sync state when currentUser is loaded
@@ -178,6 +161,15 @@ export const CartScreen: React.FC = () => {
       if (!customerPhone) setCustomerPhone(currentUser.phone || '');
       if (!customerStreet) setCustomerStreet(currentUser.street || currentUser.address || '');
       if (!customerHouseNumber) setCustomerHouseNumber(currentUser.houseNumber || '');
+      if (!customerBellName) setCustomerBellName(currentUser.bellName || currentUser.name || '');
+      if (!customerFloor) setCustomerFloor(currentUser.floor || '');
+      if (!customerApartment) setCustomerApartment(currentUser.apartment || '');
+      if (currentUser.cityAreaId) {
+        setSelectedCityAreaId(currentUser.cityAreaId);
+      } else if (currentUser.plz) {
+        const area = deliveryService.getAreaByPlz(currentUser.plz);
+        if (area) setSelectedCityAreaId(area.id);
+      }
       if (!customerPlz) setCustomerPlz(currentUser.plz || currentUser.postalCode || '17489');
       if (!customerCity) setCustomerCity(currentUser.city || 'غرايفسفالد (Greifswald)');
       if (!customerDeliveryNotes) setCustomerDeliveryNotes(currentUser.deliveryNotes || '');
@@ -194,18 +186,20 @@ export const CartScreen: React.FC = () => {
   const [isValidatingPlz, setIsValidatingPlz] = useState<boolean>(false);
   const [showOutOfServiceModal, setShowOutOfServiceModal] = useState<boolean>(false);
 
-  // Filtered street suggestions in Greifswald
+  // Filtered street suggestions strictly based on selected city area
   const filteredStreetSuggestions = useMemo(() => {
-    const query = (streetSearchQuery || customerStreet || '').trim().toLowerCase();
-    if (!query || query.length < 2) {
-      return GREIFSWALD_STREETS.slice(0, 6);
-    }
-    return GREIFSWALD_STREETS.filter(s => 
-      s.name.toLowerCase().includes(query) ||
-      s.zoneNameAr.includes(query) ||
-      s.plz.includes(query)
-    ).slice(0, 8);
-  }, [streetSearchQuery, customerStreet]);
+    if (!selectedCityAreaId) return [];
+    const query = (streetSearchQuery || customerStreet || '').trim();
+    return deliveryService.getStreetsForArea(selectedCityAreaId, query);
+  }, [selectedCityAreaId, streetSearchQuery, customerStreet]);
+
+  // Area change handler
+  const handleSelectArea = (area: CityArea) => {
+    setSelectedCityAreaId(area.id);
+    setCustomerPlz(area.plz);
+    setCustomerCity('غرايفسفالد (Greifswald)');
+    setShowStreetDropdown(false);
+  };
 
   // Validate PLZ with deliveryService whenever customerPlz changes
   useEffect(() => {
@@ -271,7 +265,7 @@ export const CartScreen: React.FC = () => {
   };
 
   // Select street suggestion handler
-  const handleSelectStreetSuggestion = (street: { name: string; plz: string; zoneNameAr: string }) => {
+  const handleSelectStreetSuggestion = (street: DeliveryStreet) => {
     setCustomerStreet(street.name);
     setStreetSearchQuery(street.name);
     setCustomerPlz(street.plz);
@@ -288,6 +282,14 @@ export const CartScreen: React.FC = () => {
 
     // Prevent duplicate simultaneous submissions
     if (isSubmittingRef.current || isCheckingOut) {
+      return;
+    }
+
+    // 0. Mandatory Authentication Requirement
+    if (!currentUser || !currentUser.id) {
+      showToast('يجب تسجيل الدخول أولاً لتأكيد وحفظ الطلب');
+      setAuthRedirectTarget('cart');
+      setShowLoginPromptModal(true);
       return;
     }
 
@@ -323,6 +325,10 @@ export const CartScreen: React.FC = () => {
     const trimmedPhone = customerPhone.trim();
     const trimmedStreet = customerStreet.trim();
     const trimmedHouseNumber = customerHouseNumber.trim();
+    const trimmedBellName = customerBellName.trim();
+    const trimmedFloor = customerFloor.trim();
+    const trimmedApartment = customerApartment.trim();
+    const trimmedDeliveryNotes = customerDeliveryNotes.trim();
 
     if (!trimmedName) {
       showToast('يرجى إدخال اسم المستلم');
@@ -334,13 +340,26 @@ export const CartScreen: React.FC = () => {
       return;
     }
 
+    if (!selectedCityAreaId) {
+      showToast('يرجى اختيار المنطقة أو الحي في غرايفسفالد');
+      return;
+    }
+
     if (!trimmedStreet) {
       showToast('يرجى إدخال اسم الشارع');
+      streetInputRef.current?.focus();
       return;
     }
 
     if (!trimmedHouseNumber) {
-      showToast('يرجى إدخال رقم البناء أو المنزل');
+      showToast('يرجى إدخال رقم البناء أو المنزل (Hausnummer)');
+      houseNumberInputRef.current?.focus();
+      return;
+    }
+
+    if (!trimmedBellName) {
+      showToast('يرجى إدخال الاسم المكتوب على الجرس (Name am Klingelschild)');
+      bellNameInputRef.current?.focus();
       return;
     }
 
@@ -350,12 +369,22 @@ export const CartScreen: React.FC = () => {
     }
 
     // Format complete clean address
+    const currentArea = deliveryService.getAreaById(selectedCityAreaId);
+    const areaLabel = currentArea ? `${currentArea.nameAr} (${currentArea.nameDe})` : 'غرايفسفالد';
     const fullStreetAddress = `${trimmedStreet} ${trimmedHouseNumber}`.trim();
+    
+    const detailsParts = [
+      `جرس: ${trimmedBellName}`,
+      trimmedFloor ? `طابق: ${trimmedFloor}` : '',
+      trimmedApartment ? `شقة: ${trimmedApartment}` : '',
+      trimmedDeliveryNotes ? `ملاحظات: ${trimmedDeliveryNotes}` : ''
+    ].filter(Boolean).join(' - ');
+
     const fullFormattedAddress = [
       fullStreetAddress,
-      customerDeliveryNotes.trim() ? `(${customerDeliveryNotes.trim()})` : '',
+      detailsParts ? `(${detailsParts})` : '',
       cleanPlz,
-      customerCity.trim() || 'غرايفسفالد'
+      areaLabel
     ].filter(Boolean).join(', ');
 
     // Lock synchronous submission
@@ -373,14 +402,23 @@ export const CartScreen: React.FC = () => {
       // Combine extra notes cleanly
       const combinedNotes = [
         customerOrderNotes.trim(),
-        customerDeliveryNotes.trim() ? `[تفاصيل العنوان/الشقة: ${customerDeliveryNotes.trim()}]` : ''
+        `[جرس: ${trimmedBellName}]`,
+        trimmedFloor ? `[طابق: ${trimmedFloor}]` : '',
+        trimmedApartment ? `[شقة: ${trimmedApartment}]` : '',
+        trimmedDeliveryNotes ? `[ملاحظات التوصيل: ${trimmedDeliveryNotes}]` : ''
       ].filter(Boolean).join(' | ');
 
       const order = await orderService.createOrder({
-        userId: currentUser?.id || 'guest',
+        userId: currentUser.id,
         customerName: trimmedName,
         phone: trimmedPhone,
         address: fullFormattedAddress,
+        street: trimmedStreet,
+        houseNumber: trimmedHouseNumber,
+        bellName: trimmedBellName,
+        floor: trimmedFloor,
+        apartment: trimmedApartment,
+        cityAreaId: selectedCityAreaId,
         city: customerCity.trim() || 'غرايفسفالد',
         cityId: validation.zone?.cityId || 'greifswald',
         branchId: validation.zone?.branchId || 'branch-greifswald-main',
@@ -408,10 +446,14 @@ export const CartScreen: React.FC = () => {
             address: fullFormattedAddress,
             street: trimmedStreet,
             houseNumber: trimmedHouseNumber,
+            bellName: trimmedBellName,
+            floor: trimmedFloor,
+            apartment: trimmedApartment,
+            cityAreaId: selectedCityAreaId,
             plz: cleanPlz,
             postalCode: cleanPlz,
             city: customerCity.trim() || 'غرايفسفالد',
-            deliveryNotes: customerDeliveryNotes.trim()
+            deliveryNotes: trimmedDeliveryNotes
           });
         } catch (profileSaveErr) {
           console.warn('Could not update user profile with latest address:', profileSaveErr);
@@ -423,6 +465,9 @@ export const CartScreen: React.FC = () => {
       setOrderSuccessData({
         plz: cleanPlz,
         address: fullFormattedAddress,
+        street: trimmedStreet,
+        houseNumber: trimmedHouseNumber,
+        bellName: trimmedBellName,
         city: customerCity.trim() || 'غرايفسفالد',
         notes: combinedNotes
       });
@@ -814,30 +859,48 @@ export const CartScreen: React.FC = () => {
 
             {/* Saved Address Box for Logged In User */}
             {hasSavedProfileAddress && (
-              <div className="bg-white p-3 rounded-xl border border-emerald-200 shadow-2xs space-y-2">
+              <div className="bg-white p-3.5 rounded-2xl border border-emerald-200 shadow-2xs space-y-2.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-emerald-900 flex items-center gap-1">
-                    <Home className="w-3.5 h-3.5 text-emerald-700" />
+                  <span className="text-[11px] font-bold text-emerald-900 flex items-center gap-1.5">
+                    <Home className="w-4 h-4 text-emerald-700" />
                     <span>العنوان المحفوظ في حسابك:</span>
                   </span>
                   <button
                     type="button"
                     onClick={() => setUseSavedAddress(!useSavedAddress)}
-                    className="text-[10px] text-emerald-800 hover:text-emerald-950 font-bold underline cursor-pointer flex items-center gap-0.5"
+                    className="text-[11px] text-emerald-800 hover:text-emerald-950 font-bold underline cursor-pointer flex items-center gap-1"
                   >
                     <Edit3 className="w-3 h-3" />
-                    <span>{useSavedAddress ? 'تعديل أو إدخال عنوان مختلف' : 'استخدام العنوان المحفوظ'}</span>
+                    <span>{useSavedAddress ? 'تعديل أو إدخال عنوان مختلف' : 'استخدام هذا العنوان'}</span>
                   </button>
                 </div>
 
                 {useSavedAddress && (
-                  <div className="bg-stone-50 p-2.5 rounded-lg border border-stone-200 text-xs text-stone-800 space-y-0.5">
-                    <div className="font-bold flex items-center gap-1">
-                      <span>{customerStreet} {customerHouseNumber}</span>
-                      <span className="text-stone-400 font-normal">, {customerPlz} {customerCity}</span>
+                  <div className="bg-stone-50 p-3 rounded-xl border border-stone-200 text-xs text-stone-800 space-y-1.5">
+                    <div className="font-bold flex items-center justify-between flex-wrap gap-1">
+                      <span className="text-stone-900 text-sm font-black">
+                        {customerStreet} {customerHouseNumber}
+                      </span>
+                      <span className="text-[10px] bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded-md font-mono font-bold">
+                        PLZ {customerPlz} {customerCity}
+                      </span>
                     </div>
+
+                    <div className="flex items-center gap-1.5 text-stone-700 text-[11px]">
+                      <Bell className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                      <span>الاسم على الجرس (Klingel): </span>
+                      <strong className="text-stone-900">{customerBellName || customerName}</strong>
+                    </div>
+
+                    {(customerFloor || customerApartment) && (
+                      <div className="text-[11px] text-stone-600 flex items-center gap-2">
+                        {customerFloor && <span>الطابق: <strong className="text-stone-800">{customerFloor}</strong></span>}
+                        {customerApartment && <span>الشقة: <strong className="text-stone-800">{customerApartment}</strong></span>}
+                      </div>
+                    )}
+
                     {customerDeliveryNotes && (
-                      <div className="text-[10px] text-stone-500">
+                      <div className="text-[10px] text-stone-500 bg-white p-2 rounded-lg border border-stone-100 mt-1">
                         ملاحظات التوصيل: {customerDeliveryNotes}
                       </div>
                     )}
@@ -846,49 +909,67 @@ export const CartScreen: React.FC = () => {
               </div>
             )}
 
-            {/* Structured Address Form (Always shown if guest or if user toggles custom address) */}
+            {/* Structured Address Form (Shown if guest or if user chooses custom address) */}
             {(!hasSavedProfileAddress || !useSavedAddress) && (
-              <div className="space-y-3 pt-1 animate-in fade-in duration-150">
+              <div className="space-y-3.5 pt-1 animate-in fade-in duration-150">
                 
-                {/* 1. Quick Delivery Zone Selector Chips */}
-                <div className="space-y-1">
-                  <label className="text-[10px] font-bold text-stone-500 block">
-                    اختر منطقتك في غرايفسفالد للملء السريع للرمز البريدي:
+                {/* 1. City Area Selection (المنطقة أو الحي) */}
+                <div className="space-y-1.5">
+                  <label className="text-[11px] font-bold text-stone-700 flex items-center justify-between">
+                    <span className="flex items-center gap-1">
+                      <MapPin className="w-3.5 h-3.5 text-emerald-700" />
+                      <span>المنطقة / الحي في غرايفسفالد (Stadtteil): *</span>
+                    </span>
+                    <span className="text-[10px] text-emerald-700 font-bold">
+                      {selectedCityAreaId ? (deliveryService.getAreaById(selectedCityAreaId)?.nameDe || '') : ''}
+                    </span>
                   </label>
-                  <div className="flex flex-wrap gap-1.5">
-                    {[
-                      { plz: '17489', label: '17489 - المركز والبلدة القديمة' },
-                      { plz: '17491', label: '17491 - شونفالده Schönwalde' },
-                      { plz: '17493', label: '17493 - إيلدينا وفيك Eldena/Wieck' },
-                      { plz: '17498', label: '17498 - نوينكيرشن والمحيط' },
-                      { plz: '17495', label: '17495 - تسوسو وكارلسبورغ' }
-                    ].map((zone) => {
-                      const isSelected = customerPlz === zone.plz;
+
+                  {/* Dropdown for complete districts */}
+                  <select
+                    value={selectedCityAreaId}
+                    onChange={(e) => {
+                      const area = deliveryService.getAreaById(e.target.value);
+                      if (area) handleSelectArea(area);
+                    }}
+                    className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2.5 text-xs font-bold text-stone-800 focus:border-emerald-700 focus:outline-hidden cursor-pointer"
+                  >
+                    {cityAreas.map((area) => (
+                      <option key={area.id} value={area.id}>
+                        {area.nameAr} - {area.nameDe} (PLZ {area.plz})
+                      </option>
+                    ))}
+                  </select>
+
+                  {/* Quick Select Chips */}
+                  <div className="flex flex-wrap gap-1.5 pt-1">
+                    {cityAreas.slice(0, 5).map((area) => {
+                      const isSelected = selectedCityAreaId === area.id;
                       return (
                         <button
-                          key={zone.plz}
+                          key={area.id}
                           type="button"
-                          onClick={() => {
-                            setCustomerPlz(zone.plz);
-                          }}
+                          onClick={() => handleSelectArea(area)}
                           className={`text-[10px] px-2.5 py-1 rounded-lg border font-bold transition-all cursor-pointer ${
                             isSelected
                               ? 'bg-emerald-800 text-white border-emerald-800 shadow-2xs'
                               : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-100'
                           }`}
                         >
-                          {zone.label}
+                          {area.nameAr}
                         </button>
                       );
                     })}
                   </div>
                 </div>
 
-                {/* 2. Street Input with Live Auto-Suggestions Dropdown */}
+                {/* 2. Street Input with Live Auto-Suggestions Dropdown for selected area */}
                 <div className="relative space-y-1">
                   <label className="text-[11px] font-bold text-stone-700 flex items-center justify-between">
                     <span>الشارع (Straße): *</span>
-                    <span className="text-[10px] text-stone-400 font-normal">اكتب اسم الشارع لاقتراحات فورية</span>
+                    <span className="text-[10px] text-stone-400 font-normal">
+                      {selectedCityAreaId ? `اقتراحات شوارع ${deliveryService.getAreaById(selectedCityAreaId)?.nameAr}` : 'اكتب اسم الشارع'}
+                    </span>
                   </label>
                   
                   <div className="relative">
@@ -904,7 +985,7 @@ export const CartScreen: React.FC = () => {
                         setStreetSearchQuery(e.target.value);
                         setShowStreetDropdown(true);
                       }}
-                      className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-700 focus:outline-hidden font-bold"
+                      className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-700 focus:outline-hidden font-bold text-stone-900"
                     />
                     <div className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none">
                       <Search className="w-3.5 h-3.5" />
@@ -913,9 +994,9 @@ export const CartScreen: React.FC = () => {
 
                   {/* Auto-suggestions Dropdown */}
                   {showStreetDropdown && filteredStreetSuggestions.length > 0 && (
-                    <div className="absolute z-30 right-0 left-0 mt-1 bg-white border border-stone-200 rounded-2xl shadow-xl overflow-hidden max-h-48 overflow-y-auto">
+                    <div className="absolute z-30 right-0 left-0 mt-1 bg-white border border-stone-200 rounded-2xl shadow-xl overflow-hidden max-h-52 overflow-y-auto">
                       <div className="p-1.5 bg-stone-50 border-b border-stone-100 text-[10px] text-stone-500 font-bold flex justify-between items-center">
-                        <span>شوارع ومناطق معتمدة في Greifswald:</span>
+                        <span>شوارع معتمدة في {deliveryService.getAreaById(selectedCityAreaId)?.nameAr || 'المنطقة'}:</span>
                         <button
                           type="button"
                           onClick={() => setShowStreetDropdown(false)}
@@ -943,7 +1024,7 @@ export const CartScreen: React.FC = () => {
                   )}
                 </div>
 
-                {/* 3. House Number and Postal Code (PLZ) Grid */}
+                {/* 3. House Number and Bell Name (Name am Klingelschild) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   {/* House Number */}
                   <div className="space-y-1">
@@ -959,7 +1040,55 @@ export const CartScreen: React.FC = () => {
                     />
                   </div>
 
-                  {/* Postal Code PLZ Input with Live Validation */}
+                  {/* Name on Doorbell */}
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-stone-700 flex items-center justify-between">
+                      <span className="flex items-center gap-1 text-emerald-950 font-black">
+                        <Bell className="w-3.5 h-3.5 text-amber-600" />
+                        <span>الاسم على الجرس (Klingel): *</span>
+                      </span>
+                      <span className="text-[9px] text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded font-bold">مهم للسائق</span>
+                    </label>
+                    <input
+                      ref={bellNameInputRef}
+                      type="text"
+                      required
+                      placeholder="مثال: Al-Saleh أو عائلة الصالح"
+                      value={customerBellName}
+                      onChange={(e) => setCustomerBellName(e.target.value)}
+                      className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-700 focus:outline-hidden font-bold text-stone-900"
+                    />
+                  </div>
+                </div>
+
+                {/* 4. Floor (Etage) and Apartment / Door Location (Wohnung) */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-stone-700">الطابق (Etage / Stockwerk):</label>
+                    <input
+                      type="text"
+                      placeholder="مثال: الطابق الثاني / 2. OG / EG"
+                      value={customerFloor}
+                      onChange={(e) => setCustomerFloor(e.target.value)}
+                      className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-700 focus:outline-hidden font-medium text-stone-800"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-stone-700">رقم الشقة أو الجهة (Wohnungsnr.):</label>
+                    <input
+                      type="text"
+                      placeholder="مثال: شقة 14 / rechts / links"
+                      value={customerApartment}
+                      onChange={(e) => setCustomerApartment(e.target.value)}
+                      className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-700 focus:outline-hidden font-medium text-stone-800"
+                    />
+                  </div>
+                </div>
+
+                {/* 5. Postal Code (PLZ) and City Info */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {/* PLZ with Live Validation Indicator */}
                   <div className="space-y-1">
                     <label className="text-[11px] font-bold text-stone-700 flex items-center justify-between">
                       <span>الرمز البريدي (PLZ): *</span>
@@ -999,6 +1128,19 @@ export const CartScreen: React.FC = () => {
                       </div>
                     </div>
                   </div>
+
+                  {/* City */}
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-stone-700">المدينة (Stadt):</label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="غرايفسفالد (Greifswald)"
+                      value={customerCity}
+                      onChange={(e) => setCustomerCity(e.target.value)}
+                      className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-700 focus:outline-hidden font-bold text-stone-800"
+                    />
+                  </div>
                 </div>
 
                 {/* Validation Status Indicator */}
@@ -1025,29 +1167,16 @@ export const CartScreen: React.FC = () => {
                   </div>
                 ) : null}
 
-                {/* City and Additional Floor/Apartment Details */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-stone-700">المدينة (Stadt):</label>
-                    <input
-                      type="text"
-                      required
-                      placeholder="غرايفسفالد (Greifswald)"
-                      value={customerCity}
-                      onChange={(e) => setCustomerCity(e.target.value)}
-                      className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-700 focus:outline-hidden font-bold text-stone-800"
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-stone-700">تفاصيل إضافية للعنوان (الطابق / الشقة):</label>
-                    <input
-                      type="text"
-                      placeholder="مثال: الطابق الثاني، شقة 14، جرس باسم الصالح"
-                      value={customerDeliveryNotes}
-                      onChange={(e) => setCustomerDeliveryNotes(e.target.value)}
-                      className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-700 focus:outline-hidden font-medium"
-                    />
-                  </div>
+                {/* 6. Driver Delivery Notes */}
+                <div className="space-y-1">
+                  <label className="text-[11px] font-bold text-stone-700">ملاحظات خاصة بالتوصيل أو السائق (اختياري):</label>
+                  <input
+                    type="text"
+                    placeholder="مثال: يرجى ترك الطلب عند الباب أو الاتصال قبل الوصول بـ 5 دقائق"
+                    value={customerDeliveryNotes}
+                    onChange={(e) => setCustomerDeliveryNotes(e.target.value)}
+                    className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-700 focus:outline-hidden font-medium"
+                  />
                 </div>
 
               </div>
@@ -1146,37 +1275,137 @@ export const CartScreen: React.FC = () => {
           </button>
         </form>
       ) : (
-        /* Proceed to Checkout Trigger Button */
-        <button
-          onClick={() => {
-            if (!isStoreOpen) {
-              showToast('المتجر مغلق حاليًا لاستقبال الطلبات الجديدة / Derzeit geschlossen');
-              return;
-            }
-            if (isBelowMinOrder) {
-              showToast(`الحد الأدنى للطلب هو ${currencySymbol || '€'}${minOrderAmount.toFixed(2)}`);
-              return;
-            }
-            setShowCheckoutForm(true);
-          }}
-          disabled={!isStoreOpen || isBelowMinOrder}
-          className="w-full bg-emerald-800 hover:bg-emerald-900 text-white font-black py-4 px-4 rounded-2xl shadow-lg flex items-center justify-between text-xs sm:text-sm cursor-pointer active:scale-98 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <div className="flex items-center gap-2">
-            <ShoppingBag className="w-4 h-4 text-amber-300" />
-            <span>
-              {!isStoreOpen 
-                ? 'المتجر مغلق حاليًا' 
-                : isBelowMinOrder 
-                ? `الحد الأدنى للطلب ${currencySymbol || '€'}${minOrderAmount.toFixed(2)}` 
-                : 'متابعة الطلب وتأكيد العنوان'}
-            </span>
+        /* Proceed to Checkout Trigger Area */
+        <div className="space-y-2.5">
+          {/* Guest Shopper Notice Badge */}
+          {!currentUser && (
+            <div className="bg-amber-50/90 border border-amber-200 rounded-2xl p-3.5 flex items-center justify-between gap-3 text-xs shadow-2xs">
+              <div className="flex items-center gap-2.5 text-amber-950">
+                <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0 border border-amber-200">
+                  <Lock className="w-4 h-4" />
+                </div>
+                <div>
+                  <p className="font-black text-stone-900 text-xs">تصفح وإضافة المنتجات متاح للجميع</p>
+                  <p className="text-[11px] text-stone-600">سيُطلب منك تسجيل الدخول لحفظ وتأكيد الطلب عند المتابعة.</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthRedirectTarget('cart');
+                  navigateTo('auth');
+                }}
+                className="text-xs font-bold text-emerald-800 bg-white border border-emerald-300 hover:bg-emerald-50 px-3 py-1.5 rounded-xl shrink-0 cursor-pointer shadow-2xs transition-all"
+              >
+                تسجيل الدخول
+              </button>
+            </div>
+          )}
+
+          <button
+            onClick={() => {
+              if (!isStoreOpen) {
+                showToast('المتجر مغلق حاليًا لاستقبال الطلبات الجديدة / Derzeit geschlossen');
+                return;
+              }
+              if (isBelowMinOrder) {
+                showToast(`الحد الأدنى للطلب هو ${currencySymbol || '€'}${minOrderAmount.toFixed(2)}`);
+                return;
+              }
+              if (!currentUser) {
+                setAuthRedirectTarget('cart');
+                setShowLoginPromptModal(true);
+                return;
+              }
+              setShowCheckoutForm(true);
+            }}
+            disabled={!isStoreOpen || isBelowMinOrder}
+            className="w-full bg-emerald-800 hover:bg-emerald-900 text-white font-black py-4 px-4 rounded-2xl shadow-lg flex items-center justify-between text-xs sm:text-sm cursor-pointer active:scale-98 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <div className="flex items-center gap-2">
+              <ShoppingBag className="w-4 h-4 text-amber-300" />
+              <span>
+                {!isStoreOpen 
+                  ? 'المتجر مغلق حاليًا' 
+                  : isBelowMinOrder 
+                  ? `الحد الأدنى للطلب ${currencySymbol || '€'}${minOrderAmount.toFixed(2)}` 
+                  : 'متابعة الطلب وتأكيد العنوان'}
+              </span>
+            </div>
+            <div className="flex items-center gap-1 font-sans">
+              <span>{currencySymbol || '€'}{finalTotal.toFixed(2)}</span>
+              <ChevronLeft className="w-4 h-4" />
+            </div>
+          </button>
+        </div>
+      )}
+
+      {/* Login Prompt Modal for Checkout Protection */}
+      {showLoginPromptModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4" dir="rtl">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-stone-200 animate-in fade-in zoom-in-95 duration-200">
+            
+            <div className="flex items-center justify-between border-b border-stone-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-800 flex items-center justify-center border border-emerald-200/70 shadow-2xs">
+                  <Lock className="w-5 h-5 text-emerald-800" />
+                </div>
+                <div>
+                  <h3 className="font-black text-sm text-stone-900">
+                    تسجيل الدخول مطلوب لإتمام الطلب
+                  </h3>
+                  <p className="text-[11px] text-stone-500">
+                    Barakamarkt24 — أمان وسهولة تتبع طلباتك
+                  </p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setShowLoginPromptModal(false)}
+                className="text-stone-400 hover:text-stone-700 cursor-pointer p-1 rounded-lg hover:bg-stone-100"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="bg-stone-50 p-4 rounded-2xl border border-stone-200/80 space-y-2 text-xs text-stone-700 leading-relaxed">
+              <p className="font-bold text-stone-900">
+                أهلاً بك في متجر Barakamarkt24!
+              </p>
+              <p>
+                يمكنك تصفح المنتجات والبحث وإضافة المشتريات إلى سلتك بحرية. لكن لحفظ وتأكيد طلبك وتثبيت عنوان التوصيل وتتبع حالته، يلزم تسجيل الدخول أو إنشاء حساب جديد.
+              </p>
+              <div className="pt-2 border-t border-stone-200 flex items-center gap-2 text-emerald-800 font-bold text-[11px]">
+                <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-700" />
+                <span>تبقى جميع المنتجات محفوظة في سلتك وتنتقل معك تلقائياً.</span>
+              </div>
+            </div>
+
+            {/* Modal Actions */}
+            <div className="flex flex-col gap-2 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setShowLoginPromptModal(false);
+                  setAuthRedirectTarget('cart');
+                  navigateTo('auth');
+                }}
+                className="w-full bg-emerald-800 hover:bg-emerald-900 text-white font-black py-3.5 px-4 rounded-2xl cursor-pointer text-xs flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all"
+              >
+                <User className="w-4 h-4 text-amber-300" />
+                <span>تسجيل الدخول / إنشاء حساب جديد</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setShowLoginPromptModal(false)}
+                className="w-full py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold rounded-2xl cursor-pointer text-xs transition-colors"
+              >
+                الاستمرار في تصفح المتجر
+              </button>
+            </div>
+
           </div>
-          <div className="flex items-center gap-1 font-sans">
-            <span>{currencySymbol || '€'}{finalTotal.toFixed(2)}</span>
-            <ChevronLeft className="w-4 h-4" />
-          </div>
-        </button>
+        </div>
       )}
 
       {/* Out of Service Area Modal (Arabic & German) */}

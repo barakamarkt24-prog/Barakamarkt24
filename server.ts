@@ -270,11 +270,17 @@ Requirements:
         app_id: appId,
         headings: {
           en: title,
-          ar: title
+          ar: title,
+          de: title,
+          fa: title,
+          uk: title
         },
         contents: {
           en: body,
-          ar: body
+          ar: body,
+          de: body,
+          fa: body,
+          uk: body
         },
         data: {
           orderId: orderId || "",
@@ -286,7 +292,12 @@ Requirements:
           couponCode: couponCode || ""
         },
         web_url: launchUrl,
-        url: launchUrl
+        url: launchUrl,
+        priority: 10,
+        android_visibility: 1,
+        android_sound: "default",
+        ios_sound: "default",
+        android_accent_color: "10B981"
       };
 
       // Target Selection:

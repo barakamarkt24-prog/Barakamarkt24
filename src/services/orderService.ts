@@ -363,7 +363,7 @@ class OrderService {
         orderId: orderId
       });
 
-      // Trigger Server-Side Real FCM Push Notification for Admin Devices
+      // Trigger Server-Side Real Push Notification for Admin Devices
       try {
         fetch('/api/send-notification', {
           method: 'POST',
@@ -399,7 +399,7 @@ class OrderService {
           orderId: orderId
         });
 
-        // Trigger Server-Side Real FCM Push Notification for Customer Device
+        // Trigger Server-Side Real Push Notification for Customer Device
         try {
           fetch('/api/send-notification', {
             method: 'POST',

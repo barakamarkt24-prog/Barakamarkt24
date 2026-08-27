@@ -35,12 +35,14 @@ export const LanguageSwitcher: React.FC<LanguageSwitcherProps> = ({
     return (
       <button
         onClick={openLanguageModal}
-        className={`bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-bold px-2.5 py-1.5 rounded-xl border border-stone-200/80 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs active:scale-95 ${className}`}
+        className={`bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-bold px-2 py-1.5 sm:px-2.5 rounded-xl border border-stone-200/80 transition-all flex items-center gap-1 sm:gap-1.5 cursor-pointer shadow-2xs active:scale-95 shrink-0 ${className}`}
         title="تغيير اللغة / Change Language"
+        aria-label="Change Language"
       >
-        <span className="text-sm leading-none">{currentOption.flag}</span>
-        <span className="text-[11px] font-extrabold">{currentOption.name}</span>
-        <Globe className="w-3.5 h-3.5 text-stone-500" />
+        <span className="text-sm leading-none shrink-0">{currentOption.flag}</span>
+        <span className="text-[11px] font-extrabold uppercase sm:hidden leading-none">{currentOption.code}</span>
+        <span className="text-[11px] font-extrabold hidden sm:inline leading-none">{currentOption.name}</span>
+        <Globe className="w-3.5 h-3.5 text-stone-500 shrink-0 hidden xs:block" />
       </button>
     );
   }

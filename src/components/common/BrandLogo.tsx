@@ -155,15 +155,15 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
 
       {/* Brand Text */}
       {variant !== 'icon' && (
-        <div className="flex flex-col text-left">
-          <div className="flex items-center text-base sm:text-lg font-black tracking-wider leading-none">
+        <div className="flex flex-col text-left min-w-0 overflow-hidden">
+          <div className="flex items-center text-sm xs:text-base sm:text-lg font-black tracking-wider leading-none truncate">
             <span style={{ color: greenColor }} className="font-extrabold">BARAKA</span>
             <span style={{ color: tealColor }} className="font-extrabold">MARKT24</span>
           </div>
           {showSubtitle && (
             <div 
               style={{ color: subtextColor }}
-              className="text-[9px] sm:text-[10px] font-medium tracking-tight mt-0.5 whitespace-nowrap"
+              className="text-[9px] sm:text-[10px] font-medium tracking-tight mt-0.5 hidden sm:block truncate"
             >
               Arabic & International Products • Greifswald
             </div>

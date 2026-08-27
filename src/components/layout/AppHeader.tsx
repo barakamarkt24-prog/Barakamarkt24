@@ -51,11 +51,11 @@ export const AppHeader: React.FC = () => {
       <div className="flex items-center justify-between gap-2 max-w-7xl mx-auto">
         
         {/* Left Side: Brand Logo or Back Button */}
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0 flex-1">
           {isSubScreen ? (
             <button
               onClick={goBack}
-              className="w-9 h-9 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 flex items-center justify-center transition-colors cursor-pointer active:scale-95"
+              className="w-9 h-9 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 flex items-center justify-center transition-colors cursor-pointer active:scale-95 shrink-0"
               aria-label={t('nav.back')}
             >
               <BackIcon className="w-5 h-5" />
@@ -63,21 +63,21 @@ export const AppHeader: React.FC = () => {
           ) : (
             <button 
               onClick={() => navigateTo('home')}
-              className="flex items-center gap-2 text-left cursor-pointer"
+              className="flex items-center gap-2 text-left cursor-pointer shrink-0"
             >
               <BrandLogo variant="compact" size="sm" showSubtitle={false} />
             </button>
           )}
 
           {isSubScreen && (
-            <h1 className="font-bold text-sm text-stone-900 line-clamp-1">
+            <h1 className="font-bold text-sm text-stone-900 truncate">
               {getScreenTitle()}
             </h1>
           )}
         </div>
 
         {/* Right Side: Quick Action Icons */}
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-1.5 shrink-0">
           
           {/* Admin Dashboard Tag (Only visible for admin accounts) */}
           {currentUser?.role === 'admin' && (

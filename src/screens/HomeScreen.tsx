@@ -206,10 +206,10 @@ export const HomeScreen: React.FC = () => {
     <div className="space-y-4 pb-12 max-w-5xl mx-auto" dir={dir}>
       
       {/* 1. Header with Official Logo, Language Switcher, Cart and Account buttons */}
-      <header className="bg-white px-4 pt-3 pb-2.5 border-b border-stone-200/80 shadow-2xs sticky top-0 z-40 backdrop-blur-md bg-white/95">
-        <div className="flex items-center justify-between gap-3 max-w-5xl mx-auto">
+      <header className="bg-white px-3 sm:px-4 pt-3 pb-2.5 border-b border-stone-200/80 shadow-2xs sticky top-0 z-40 backdrop-blur-md bg-white/95">
+        <div className="flex items-center justify-between gap-2 sm:gap-3 max-w-5xl mx-auto">
           
-          {/* Brand Official Logo */}
+          {/* Brand Official Logo - Flexible & Shrinkable Zone */}
           <button 
             onClick={() => {
               setActiveCategoryFilter('all');
@@ -217,13 +217,13 @@ export const HomeScreen: React.FC = () => {
               setSearchTerm('');
               setSearchQuery('');
             }}
-            className="cursor-pointer text-left transition-transform active:scale-98"
+            className="cursor-pointer text-left transition-transform active:scale-98 flex-1 min-w-0 flex items-center"
           >
             <BrandLogo variant="compact" size="md" showSubtitle={true} />
           </button>
 
-          {/* Action Buttons: Language Switcher, Quick Cart & Account / Login */}
-          <div className="flex items-center gap-2">
+          {/* Action Buttons: Language Switcher, Quick Cart & Account / Login - Stable shrink-0 Zone */}
+          <div className="flex items-center gap-1.5 sm:gap-2 shrink-0">
             
             {/* Language Switcher Button */}
             <LanguageSwitcher variant="compact" />
@@ -231,7 +231,7 @@ export const HomeScreen: React.FC = () => {
             {/* Quick Cart Button */}
             <button
               onClick={() => navigateTo('cart')}
-              className="relative p-2.5 rounded-2xl bg-stone-50 hover:bg-emerald-50 text-stone-700 hover:text-[#005A36] border border-stone-200/80 hover:border-emerald-200 transition-all cursor-pointer active:scale-95 shadow-2xs flex items-center justify-center"
+              className="relative p-2 sm:p-2.5 rounded-xl sm:rounded-2xl bg-stone-50 hover:bg-emerald-50 text-stone-700 hover:text-[#005A36] border border-stone-200/80 hover:border-emerald-200 transition-all cursor-pointer active:scale-95 shadow-2xs flex items-center justify-center shrink-0"
               aria-label={t('nav.cart')}
               title={t('nav.cart')}
             >
@@ -247,7 +247,7 @@ export const HomeScreen: React.FC = () => {
             {currentUser ? (
               <button
                 onClick={() => navigateTo('profile')}
-                className="px-3 py-2 rounded-2xl bg-stone-50 hover:bg-emerald-50 text-stone-700 hover:text-[#005A36] border border-stone-200/80 hover:border-emerald-200 transition-all cursor-pointer active:scale-95 shadow-2xs flex items-center gap-1.5 text-xs font-bold"
+                className="px-2 sm:px-3 py-2 rounded-xl sm:rounded-2xl bg-stone-50 hover:bg-emerald-50 text-stone-700 hover:text-[#005A36] border border-stone-200/80 hover:border-emerald-200 transition-all cursor-pointer active:scale-95 shadow-2xs flex items-center gap-1.5 text-xs font-bold shrink-0"
                 aria-label={t('nav.profile')}
                 title={t('nav.profile')}
               >
@@ -259,12 +259,12 @@ export const HomeScreen: React.FC = () => {
             ) : (
               <button
                 onClick={() => navigateTo('auth')}
-                className="px-3 py-2 rounded-2xl bg-[#005A36] hover:bg-[#00472a] text-white transition-all cursor-pointer active:scale-95 shadow-2xs flex items-center gap-1.5 text-xs font-bold"
+                className="px-2.5 sm:px-3 py-2 rounded-xl sm:rounded-2xl bg-[#005A36] hover:bg-[#00472a] text-white transition-all cursor-pointer active:scale-95 shadow-2xs flex items-center gap-1.5 text-xs font-bold shrink-0"
                 aria-label={t('auth.loginBtn')}
                 title={t('auth.loginBtn')}
               >
-                <LogIn className="w-3.5 h-3.5 text-[#3B8EAA]" />
-                <span>{t('auth.loginBtn')}</span>
+                <LogIn className="w-3.5 h-3.5 text-[#3B8EAA] shrink-0" />
+                <span className="hidden xs:inline whitespace-nowrap">{t('auth.loginBtn')}</span>
               </button>
             )}
 

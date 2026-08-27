@@ -36,7 +36,11 @@ export const ProductsScreen: React.FC = () => {
     setSearchQuery,
     currentUser,
     currencySymbol,
-    isLoadingProducts
+    isLoadingProducts,
+    dir,
+    t,
+    getCategoryName,
+    getSubcategoryName
   } = useApp();
 
   const productListRef = useRef<HTMLDivElement>(null);
@@ -230,7 +234,7 @@ export const ProductsScreen: React.FC = () => {
   }, [selectedCategoryId, selectedSubcategoryId, searchQuery, priceRange, selectedPricePreset, inStockOnly]);
 
   const activeCategory = categories.find(c => c.id === selectedCategoryId);
-  const activeCategoryName = activeCategory ? (activeCategory.nameAr || activeCategory.name) : undefined;
+  const activeCategoryName = activeCategory ? getCategoryName(activeCategory) : undefined;
   
   const activeSubcategory = subcategories.find(s => 
     s.id === selectedSubcategoryId || 
@@ -238,10 +242,10 @@ export const ProductsScreen: React.FC = () => {
     s.nameAr === selectedSubcategoryId || 
     s.name === selectedSubcategoryId
   );
-  const activeSubcategoryName = activeSubcategory ? (activeSubcategory.nameAr || activeSubcategory.name) : (selectedSubcategoryId || undefined);
+  const activeSubcategoryName = activeSubcategory ? getSubcategoryName(activeSubcategory) : (selectedSubcategoryId || undefined);
 
   return (
-    <div className="space-y-4 pb-12 max-w-6xl mx-auto" dir="rtl" ref={productListRef}>
+    <div className="space-y-4 pb-12 max-w-6xl mx-auto" dir={dir} ref={productListRef}>
       
       {/* 1. Main Search & Filter Control Bar */}
       <div className="bg-white p-4 rounded-b-3xl border-b border-stone-200/80 shadow-2xs space-y-3">
@@ -250,19 +254,19 @@ export const ProductsScreen: React.FC = () => {
         <div className="relative">
           <input
             type="text"
-            placeholder="ابحث باسم المنتج (مكدوس، زيت زيتون، فريكة، زعتر...)"
+            placeholder={t('search.placeholder')}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-stone-50 border border-stone-200/90 text-xs px-4 py-3 rounded-2xl pr-10 pl-20 focus:bg-white focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/10 focus:outline-hidden shadow-2xs text-stone-900 placeholder:text-stone-400 transition-all font-medium"
+            className={`w-full bg-stone-50 border border-stone-200/90 text-xs px-4 py-3 rounded-2xl ${dir === 'rtl' ? 'pr-10 pl-20' : 'pl-10 pr-20'} focus:bg-white focus:border-emerald-700 focus:ring-2 focus:ring-emerald-700/10 focus:outline-hidden shadow-2xs text-stone-900 placeholder:text-stone-400 transition-all font-medium`}
           />
-          <Search className="w-4 h-4 text-stone-400 absolute right-3.5 top-1/2 -translate-y-1/2" />
+          <Search className={`w-4 h-4 text-stone-400 absolute ${dir === 'rtl' ? 'right-3.5' : 'left-3.5'} top-1/2 -translate-y-1/2`} />
           
-          <div className="absolute left-2 top-1/2 -translate-y-1/2 flex items-center gap-1">
+          <div className={`absolute ${dir === 'rtl' ? 'left-2' : 'right-2'} top-1/2 -translate-y-1/2 flex items-center gap-1`}>
             {searchQuery && (
               <button
                 onClick={() => setSearchQuery('')}
                 className="text-stone-400 hover:text-stone-700 p-1.5 rounded-lg hover:bg-stone-100 cursor-pointer transition-colors"
-                title="مسح البحث"
+                title={t('common.clear')}
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -276,10 +280,10 @@ export const ProductsScreen: React.FC = () => {
                   ? 'bg-emerald-800 text-white shadow-xs'
                   : 'bg-white border border-stone-200 text-stone-700 hover:bg-stone-100'
               }`}
-              title="خيارات التصفية والفلاتر"
+              title={t('product.filterBy')}
             >
               <SlidersHorizontal className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">فلاتر</span>
+              <span className="hidden sm:inline">{t('common.filter')}</span>
               {activeFiltersCount > 0 && (
                 <span className="bg-amber-400 text-stone-900 text-[10px] font-black w-4 h-4 rounded-full flex items-center justify-center">
                   {activeFiltersCount}
@@ -294,7 +298,7 @@ export const ProductsScreen: React.FC = () => {
           <div className="flex items-center justify-between text-[11px] font-bold text-stone-600 px-1">
             <span className="flex items-center gap-1">
               <Tag className="w-3 h-3 text-emerald-700" />
-              الأقسام الرئيسية
+              {t('categories.title')}
             </span>
             {selectedCategoryId && (
               <button 
@@ -304,7 +308,7 @@ export const ProductsScreen: React.FC = () => {
                 }}
                 className="text-emerald-800 hover:text-emerald-900 cursor-pointer font-bold text-[10px]"
               >
-                إلغاء تحديد القسم
+                {t('common.all')}
               </button>
             )}
           </div>
@@ -321,12 +325,13 @@ export const ProductsScreen: React.FC = () => {
                   : 'bg-stone-50 text-stone-600 border border-stone-200/80 hover:bg-stone-100'
               }`}
             >
-              جميع الأقسام ({products.length})
+              {t('product.allCategories')} ({products.length})
             </button>
 
             {categories.filter(c => c.isActive !== false).map((cat) => {
               const isSelected = selectedCategoryId === cat.id;
               const catProductCount = products.filter(p => p.categoryId === cat.id).length;
+              const localizedCatName = getCategoryName(cat);
               return (
                 <button
                   key={cat.id}
@@ -340,7 +345,7 @@ export const ProductsScreen: React.FC = () => {
                       : 'bg-stone-50 text-stone-700 border border-stone-200/80 hover:bg-stone-100'
                   }`}
                 >
-                  <span>{cat.nameAr || cat.name}</span>
+                  <span>{localizedCatName}</span>
                   <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono ${
                     isSelected ? 'bg-emerald-950 text-emerald-200' : 'bg-stone-200 text-stone-600'
                   }`}>
@@ -358,7 +363,7 @@ export const ProductsScreen: React.FC = () => {
             <div className="flex items-center justify-between text-[11px] font-bold text-stone-600 px-1">
               <span className="flex items-center gap-1">
                 <Layers className="w-3 h-3 text-emerald-700" />
-                الأقسام الفرعية
+                {t('categories.subcategoriesTitle')}
                 {activeCategoryName && <span className="text-emerald-800 font-normal">({activeCategoryName})</span>}
               </span>
               {selectedSubcategoryId && (
@@ -366,7 +371,7 @@ export const ProductsScreen: React.FC = () => {
                   onClick={() => setSelectedSubcategoryId(null)}
                   className="text-stone-500 hover:text-stone-800 cursor-pointer font-bold text-[10px]"
                 >
-                  الكل
+                  {t('common.all')}
                 </button>
               )}
             </div>
@@ -380,11 +385,12 @@ export const ProductsScreen: React.FC = () => {
                     : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50'
                 }`}
               >
-                الكل
+                {t('common.all')}
               </button>
 
               {availableSubcategories.map((sub) => {
                 const isSelected = selectedSubcategoryId === sub.id || selectedSubcategoryId === sub.nameAr || selectedSubcategoryId === sub.name;
+                const localizedSubName = getSubcategoryName(sub);
                 return (
                   <button
                     key={sub.id}
@@ -395,7 +401,7 @@ export const ProductsScreen: React.FC = () => {
                         : 'bg-white text-stone-700 hover:bg-stone-50 border border-stone-200/80'
                     }`}
                   >
-                    {sub.nameAr || sub.name}
+                    {localizedSubName}
                   </button>
                 );
               })}
@@ -412,14 +418,14 @@ export const ProductsScreen: React.FC = () => {
               <div className="flex items-center justify-between text-xs font-bold text-stone-900">
                 <span className="flex items-center gap-1.5">
                   <Euro className="w-3.5 h-3.5 text-emerald-800" />
-                  تصفية حسب السعر ({currencySymbol || '€'})
+                  {t('product.filterBy')} {t('product.price')} ({currencySymbol || '€'})
                 </span>
                 {(priceRange.min || priceRange.max) && (
                   <button
                     onClick={() => handlePricePreset('all')}
                     className="text-[10px] text-rose-600 hover:text-rose-800 font-bold cursor-pointer"
                   >
-                    إلغاء تصفية السعر
+                    {t('common.clear')}
                   </button>
                 )}
               </div>
@@ -427,8 +433,8 @@ export const ProductsScreen: React.FC = () => {
               {/* Price Preset Chips */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
                 {[
-                  { id: 'all', label: 'جميع الأسعار' },
-                  { id: 'under-5', label: `أقل من 5 ${currencySymbol || '€'}` },
+                  { id: 'all', label: t('common.all') },
+                  { id: 'under-5', label: `< 5 ${currencySymbol || '€'}` },
                   { id: '5-15', label: `5 - 15 ${currencySymbol || '€'}` },
                   { id: '15-30', label: `15 - 30 ${currencySymbol || '€'}` },
                 ].map((preset) => (
@@ -449,7 +455,7 @@ export const ProductsScreen: React.FC = () => {
               {/* Custom Min / Max Price Inputs */}
               <div className="flex items-center gap-2 pt-1">
                 <div className="flex-1 flex items-center bg-white border border-stone-200 rounded-xl px-2.5 py-1.5 shadow-2xs">
-                  <span className="text-[10px] text-stone-400 font-bold ml-1">من:</span>
+                  <span className="text-[10px] text-stone-400 font-bold ml-1">Min:</span>
                   <input
                     type="number"
                     min="0"
@@ -467,7 +473,7 @@ export const ProductsScreen: React.FC = () => {
                 <span className="text-stone-400 font-bold text-xs">-</span>
 
                 <div className="flex-1 flex items-center bg-white border border-stone-200 rounded-xl px-2.5 py-1.5 shadow-2xs">
-                  <span className="text-[10px] text-stone-400 font-bold ml-1">إلى:</span>
+                  <span className="text-[10px] text-stone-400 font-bold ml-1">Max:</span>
                   <input
                     type="number"
                     min="0"
@@ -489,8 +495,8 @@ export const ProductsScreen: React.FC = () => {
               <div className="flex items-center gap-2">
                 <CheckCircle2 className={`w-4 h-4 ${inStockOnly ? 'text-emerald-700' : 'text-stone-400'}`} />
                 <div>
-                  <span className="text-xs font-bold text-stone-900 block">عرض المتوفر في المخزن فقط</span>
-                  <span className="text-[10px] text-stone-500">إخفاء الأصناف غير المتوفرة حالياً</span>
+                  <span className="text-xs font-bold text-stone-900 block">{t('product.inStock')}</span>
+                  <span className="text-[10px] text-stone-500">{t('product.piecesLeft', { count: '' }).replace('{count}', '')}</span>
                 </div>
               </div>
               
@@ -507,7 +513,7 @@ export const ProductsScreen: React.FC = () => {
 
             {/* Items Per Page Selector for Pagination */}
             <div className="pt-2 border-t border-stone-200/60 flex items-center justify-between text-xs">
-              <span className="font-bold text-stone-700">عدد المنتجات في كل صفحة:</span>
+              <span className="font-bold text-stone-700">{t('product.quantity')}:</span>
               <div className="flex items-center gap-1">
                 {[8, 12, 24, 48].map((size) => (
                   <button
@@ -538,10 +544,10 @@ export const ProductsScreen: React.FC = () => {
         
         {/* Results Counter */}
         <div className="text-stone-600 font-medium">
-          تم العثور على <span className="font-extrabold text-stone-900">{filteredProducts.length}</span> منتج
+          {t('search.resultsFound', { count: filteredProducts.length })}
           {filteredProducts.length > 0 && (
-            <span className="text-stone-400 text-[11px] mr-1">
-              (الصفحة {currentPage} من {totalPages})
+            <span className="text-stone-400 text-[11px] mx-1">
+              ({currentPage} / {totalPages})
             </span>
           )}
         </div>
@@ -557,10 +563,9 @@ export const ProductsScreen: React.FC = () => {
                 ? 'bg-emerald-50 text-emerald-800 border-emerald-300 shadow-2xs' 
                 : 'bg-white text-stone-600 border-stone-200 hover:bg-stone-50'
             }`}
-            title="تبديل عرض المتوفر فقط"
           >
             <Check className={`w-3 h-3 ${inStockOnly ? 'text-emerald-700' : 'text-stone-400'}`} />
-            <span>المتوفر فقط</span>
+            <span>{t('product.inStock')}</span>
           </button>
 
           {/* Sort Dropdown */}
@@ -570,11 +575,11 @@ export const ProductsScreen: React.FC = () => {
               onChange={(e) => setSortBy(e.target.value as SortOption)}
               className="bg-white border border-stone-200 text-stone-800 text-[11px] font-bold rounded-xl px-2.5 py-1.5 focus:border-emerald-700 focus:ring-1 focus:ring-emerald-700/20 focus:outline-hidden cursor-pointer shadow-2xs"
             >
-              <option value="featured">الأكثر تميزاً</option>
-              <option value="newest">الأحدث وصولاً</option>
-              <option value="price-asc">السعر: من الأقل للأعلى</option>
-              <option value="price-desc">السعر: من الأعلى للأقل</option>
-              <option value="rating">الأعلى تقييماً</option>
+              <option value="featured">{t('product.sortDefault')}</option>
+              <option value="newest">{t('product.sortNewest')}</option>
+              <option value="price-asc">{t('product.sortPriceLow')}</option>
+              <option value="price-desc">{t('product.sortPriceHigh')}</option>
+              <option value="rating">Top Rated</option>
             </select>
           </div>
 
@@ -585,11 +590,11 @@ export const ProductsScreen: React.FC = () => {
       {/* 6. Active Filters Badges */}
       {activeFiltersCount > 0 && (
         <div className="px-4 flex flex-wrap items-center gap-1.5">
-          <span className="text-[11px] text-stone-400 font-bold">الفلاتر المطبقة:</span>
+          <span className="text-[11px] text-stone-400 font-bold">{t('product.filterBy')}:</span>
           
           {activeCategoryName && (
             <span className="bg-emerald-50 text-emerald-800 text-[11px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 border border-emerald-200">
-              القسم: {activeCategoryName}
+              {t('product.category')}: {activeCategoryName}
               <button 
                 onClick={() => {
                   setSelectedCategoryId(null);
@@ -604,7 +609,7 @@ export const ProductsScreen: React.FC = () => {
 
           {activeSubcategoryName && (
             <span className="bg-stone-100 text-stone-800 text-[11px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 border border-stone-200">
-              الفرعي: {activeSubcategoryName}
+              {t('product.subcategory')}: {activeSubcategoryName}
               <button 
                 onClick={() => setSelectedSubcategoryId(null)} 
                 className="hover:text-stone-950 cursor-pointer"
@@ -616,7 +621,7 @@ export const ProductsScreen: React.FC = () => {
 
           {searchQuery && (
             <span className="bg-stone-100 text-stone-800 text-[11px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 border border-stone-200">
-              البحث: "{searchQuery}"
+              {t('nav.search')}: "{searchQuery}"
               <button onClick={() => setSearchQuery('')} className="hover:text-stone-950 cursor-pointer">
                 <X className="w-3 h-3" />
               </button>
@@ -625,7 +630,7 @@ export const ProductsScreen: React.FC = () => {
 
           {(priceRange.min || priceRange.max) && (
             <span className="bg-amber-50 text-amber-900 text-[11px] font-bold px-2 py-0.5 rounded-md flex items-center gap-1 border border-amber-200">
-              السعر: {priceRange.min || '0'} - {priceRange.max || maxStorePrice} {currencySymbol || '€'}
+              {t('product.price')}: {priceRange.min || '0'} - {priceRange.max || maxStorePrice} {currencySymbol || '€'}
               <button onClick={() => handlePricePreset('all')} className="hover:text-amber-950 cursor-pointer">
                 <X className="w-3 h-3" />
               </button>
@@ -635,10 +640,10 @@ export const ProductsScreen: React.FC = () => {
           {/* Clear All Reset Button */}
           <button
             onClick={handleResetFilters}
-            className="text-[11px] font-bold text-rose-600 hover:text-rose-800 flex items-center gap-1 mr-1 cursor-pointer"
+            className="text-[11px] font-bold text-rose-600 hover:text-rose-800 flex items-center gap-1 mx-1 cursor-pointer"
           >
             <RotateCcw className="w-3 h-3" />
-            <span>إعادة ضبط الكل</span>
+            <span>{t('common.clear')}</span>
           </button>
         </div>
       )}
@@ -657,9 +662,9 @@ export const ProductsScreen: React.FC = () => {
           </div>
         ) : (
           <EmptyState
-            title="لا توجد منتجات مطابقة لخيارات البحث"
-            description="حاول تقليل الفلاتر أو البحث بكلمات أخرى أو تعديل نطاق السعر المحدد"
-            actionText="إعادة ضبط وعرض كافة المنتجات"
+            title={t('product.noProductsFound')}
+            description={t('search.noResultsSub')}
+            actionText={t('home.allProducts')}
             onAction={handleResetFilters}
           />
         )}
@@ -680,8 +685,8 @@ export const ProductsScreen: React.FC = () => {
                   : 'bg-stone-50 hover:bg-emerald-50 text-stone-700 hover:text-emerald-800 border border-stone-200/80 active:scale-95'
               }`}
             >
-              <ChevronRight className="w-4 h-4" />
-              <span>الصفحة السابقة</span>
+              {dir === 'rtl' ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+              <span>{t('nav.back')}</span>
             </button>
 
             {/* Numeric Page Buttons */}
@@ -726,15 +731,15 @@ export const ProductsScreen: React.FC = () => {
                   : 'bg-stone-50 hover:bg-emerald-50 text-stone-700 hover:text-emerald-800 border border-stone-200/80 active:scale-95'
               }`}
             >
-              <span>الصفحة التالية</span>
-              <ChevronLeft className="w-4 h-4" />
+              <span>{t('categories.categories')}</span>
+              {dir === 'rtl' ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
             </button>
 
           </div>
 
           {/* Bottom Summary Bar */}
           <div className="text-center pt-2 text-[11px] text-stone-500 font-medium">
-            عرض {paginatedProducts.length} من إجمالي {filteredProducts.length} منتج
+            {paginatedProducts.length} / {filteredProducts.length} {t('common.products')}
           </div>
         </div>
       )}

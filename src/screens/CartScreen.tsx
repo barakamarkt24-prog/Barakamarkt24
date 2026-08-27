@@ -54,7 +54,10 @@ export const CartScreen: React.FC = () => {
     setAuthRedirectTarget,
     showToast,
     storeSettings,
-    currencySymbol
+    currencySymbol,
+    dir,
+    t,
+    getProductName
   } = useApp();
 
   const [isCheckingOut, setIsCheckingOut] = useState<boolean>(false);
@@ -62,6 +65,12 @@ export const CartScreen: React.FC = () => {
   const [showLoginPromptModal, setShowLoginPromptModal] = useState<boolean>(false);
   const [orderSuccess, setOrderSuccess] = useState<string | null>(null);
   const [orderSuccessData, setOrderSuccessData] = useState<{ 
+    orderId: string;
+    total: number;
+    subtotal: number;
+    deliveryFee: number;
+    discount?: number;
+    paymentMethod: string;
     plz: string; 
     address: string; 
     city: string; 
@@ -69,6 +78,7 @@ export const CartScreen: React.FC = () => {
     bellName?: string;
     street?: string;
     houseNumber?: string;
+    itemsCount?: number;
   } | null>(null);
 
   // Synchronous lock ref to prevent rapid double-clicks from submitting duplicate orders
@@ -84,16 +94,16 @@ export const CartScreen: React.FC = () => {
   const enabledPaymentMethods = useMemo(() => {
     const methods: { id: 'cash_on_delivery' | 'card' | 'bank_transfer'; label: string; icon: any }[] = [];
     if (storeSettings.paymentMethods?.cash_on_delivery !== false) {
-      methods.push({ id: 'cash_on_delivery', label: 'عند الاستلام', icon: Banknote });
+      methods.push({ id: 'cash_on_delivery', label: t('checkout.cashOnDelivery') || 'Barzahlung', icon: Banknote });
     }
     if (storeSettings.paymentMethods?.card !== false) {
-      methods.push({ id: 'card', label: 'بطاقة بنكية', icon: CreditCard });
+      methods.push({ id: 'card', label: t('checkout.stripe') || 'Kartenzahlung', icon: CreditCard });
     }
     if (storeSettings.paymentMethods?.bank_transfer !== false) {
-      methods.push({ id: 'bank_transfer', label: 'تحويل بنكي', icon: FileText });
+      methods.push({ id: 'bank_transfer', label: t('checkout.bankTransfer') || 'Banküberweisung', icon: FileText });
     }
     return methods;
-  }, [storeSettings.paymentMethods]);
+  }, [storeSettings.paymentMethods, t]);
 
   // Available City Areas / Districts in Greifswald
   const cityAreas: CityArea[] = useMemo(() => deliveryService.getCityAreas(), []);
@@ -461,15 +471,27 @@ export const CartScreen: React.FC = () => {
       }
 
       // Successful order confirmed by Firestore
+      const confirmedTotal = typeof order.total === 'number' ? order.total : finalTotal;
+      const confirmedSubtotal = typeof order.subtotal === 'number' ? order.subtotal : cartTotal;
+      const confirmedDeliveryFee = typeof order.deliveryFee === 'number' ? order.deliveryFee : deliveryFee;
+      const confirmedPaymentMethod = (order.paymentMethod as string) || paymentMethod;
+
       setOrderSuccess(order.id);
       setOrderSuccessData({
+        orderId: order.id,
+        total: confirmedTotal,
+        subtotal: confirmedSubtotal,
+        deliveryFee: confirmedDeliveryFee,
+        discount: order.discount || 0,
+        paymentMethod: confirmedPaymentMethod,
         plz: cleanPlz,
         address: fullFormattedAddress,
         street: trimmedStreet,
         houseNumber: trimmedHouseNumber,
         bellName: trimmedBellName,
         city: customerCity.trim() || 'غرايفسفالد',
-        notes: combinedNotes
+        notes: combinedNotes,
+        itemsCount: cart.length
       });
 
       // Clear the cart ONLY upon verified creation success
@@ -488,53 +510,63 @@ export const CartScreen: React.FC = () => {
 
   // 1. Order Success Screen
   if (orderSuccess) {
+    const displayTotal = orderSuccessData?.total !== undefined ? orderSuccessData.total : finalTotal;
+    const activePayment = orderSuccessData?.paymentMethod || paymentMethod;
+
     return (
-      <div className="p-6 text-center space-y-5 my-8 max-w-lg mx-auto" dir="rtl">
+      <div className="p-6 text-center space-y-5 my-8 max-w-lg mx-auto" dir={dir}>
         <div className="w-20 h-20 rounded-3xl bg-emerald-100 text-emerald-800 flex items-center justify-center mx-auto shadow-inner">
           <CheckCircle2 className="w-12 h-12" />
         </div>
 
         <div className="space-y-1.5">
-          <h2 className="text-xl font-black text-stone-900">تم تأكيد طلبك بنجاح!</h2>
+          <h2 className="text-xl font-black text-stone-900">{t('checkout.orderSuccess')}</h2>
           <p className="text-xs text-stone-500">
-            رقم الطلب الخاص بك: <span className="font-bold text-stone-900 font-mono text-sm bg-stone-100 px-2 py-0.5 rounded-md">#{orderSuccess}</span>
+            {t('orders.orderNumber')}: <span className="font-bold text-stone-900 font-mono text-sm bg-stone-100 px-2 py-0.5 rounded-md">#{orderSuccess}</span>
           </p>
         </div>
 
-        <div className="bg-white p-4.5 rounded-3xl border border-stone-200/80 text-right text-xs space-y-2.5 shadow-2xs">
+        <div className="bg-white p-4.5 rounded-3xl border border-stone-200/80 text-start text-xs space-y-2.5 shadow-2xs">
           <div className="flex justify-between text-stone-600">
-            <span>حالة الطلب:</span>
+            <span>{t('orders.orderStatus')}:</span>
             <span className="font-bold text-emerald-800 bg-emerald-50 px-2.5 py-0.5 rounded-lg border border-emerald-200">
-              قيد المراجعة والتجهيز
+              {t('orders.statuses.pending') || 'قيد المراجعة والتجهيز'}
             </span>
           </div>
 
           <div className="flex justify-between text-stone-600">
-            <span>المدينة والفرع:</span>
+            <span>{t('checkout.city')}:</span>
             <span className="font-bold text-stone-800">
-              غرايفسفالد ({orderSuccessData?.plz || customerPlz}) - فرع غرايفسفالد الرئيسي
+              Greifswald ({orderSuccessData?.plz || customerPlz})
             </span>
           </div>
 
           <div className="flex justify-between text-stone-600">
-            <span>عنوان التوصيل المعتمد:</span>
+            <span>{t('checkout.deliveryAddress')}:</span>
             <span className="font-bold text-stone-800">{orderSuccessData?.address || `${customerStreet} ${customerHouseNumber}`}</span>
           </div>
 
           <div className="flex justify-between text-stone-600">
-            <span>طريقة الدفع:</span>
+            <span>{t('checkout.paymentMethod')}:</span>
             <span className="font-bold text-stone-800">
-              {paymentMethod === 'cash_on_delivery' 
-                ? 'الدفع نقداً عند الاستلام' 
-                : paymentMethod === 'card' 
-                ? 'بطاقة بنكية' 
-                : 'تحويل بنكي'}
+              {activePayment === 'cash_on_delivery' 
+                ? t('checkout.cashOnDelivery') 
+                : activePayment === 'card' 
+                ? t('checkout.stripe') 
+                : t('checkout.bankTransfer')}
             </span>
           </div>
 
+          {orderSuccessData?.deliveryFee !== undefined && orderSuccessData.deliveryFee > 0 && (
+            <div className="flex justify-between text-stone-500 pt-1">
+              <span>{t('checkout.deliveryFee') || 'رسوم التوصيل'}:</span>
+              <span className="font-medium text-stone-700 font-sans">{currencySymbol || '€'}{orderSuccessData.deliveryFee.toFixed(2)}</span>
+            </div>
+          )}
+
           <div className="flex justify-between text-stone-600 pt-2 border-t border-stone-100">
-            <span>المجموع النهائي:</span>
-            <span className="font-black text-emerald-800 text-sm font-sans">{currencySymbol || '€'}{finalTotal.toFixed(2)}</span>
+            <span>{t('cart.total')}:</span>
+            <span className="font-black text-emerald-800 text-sm font-sans">{currencySymbol || '€'}{displayTotal.toFixed(2)}</span>
           </div>
         </div>
 
@@ -546,7 +578,7 @@ export const CartScreen: React.FC = () => {
             }}
             className="w-full bg-emerald-800 hover:bg-emerald-900 text-white font-bold py-3.5 rounded-2xl text-xs sm:text-sm cursor-pointer shadow-md active:scale-98 transition-all"
           >
-            الانتقال لصفحة طلباتي
+            {t('nav.orders')}
           </button>
           <button
             onClick={() => {
@@ -555,7 +587,7 @@ export const CartScreen: React.FC = () => {
             }}
             className="w-full bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold py-3.5 rounded-2xl text-xs sm:text-sm cursor-pointer active:scale-98 transition-all"
           >
-            متابعة التسوق في المتجر
+            {t('cart.continueShopping')}
           </button>
         </div>
       </div>
@@ -565,22 +597,22 @@ export const CartScreen: React.FC = () => {
   // 2. Empty Cart Screen
   if (cart.length === 0) {
     return (
-      <div className="p-8 text-center space-y-4 my-12 max-w-md mx-auto" dir="rtl">
+      <div className="p-8 text-center space-y-4 my-12 max-w-md mx-auto" dir={dir}>
         <div className="w-20 h-20 bg-stone-100 text-stone-400 rounded-3xl flex items-center justify-center mx-auto border border-stone-200/60 shadow-2xs">
           <ShoppingBag className="w-10 h-10" />
         </div>
         <div className="space-y-1.5">
-          <h2 className="text-lg font-black text-stone-900">سلة المشتريات فارغة</h2>
+          <h2 className="text-lg font-black text-stone-900">{t('cart.emptyTitle')}</h2>
           <p className="text-xs text-stone-500 max-w-xs mx-auto leading-relaxed">
-            لم تقم بإضافة أي منتجات إلى سلتك بعد. تصفح تشكيلة المؤونة والخيرات السورية وأضف ما تحتاجه!
+            {t('cart.emptyMessage')}
           </p>
         </div>
         <button
-          onClick={() => navigateTo('products')}
+          onClick={() => navigateTo('home')}
           className="bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold px-6 py-3.5 rounded-2xl shadow-md cursor-pointer active:scale-95 transition-all inline-flex items-center gap-2"
         >
-          <span>تصفح المنتجات الآن</span>
-          <ChevronLeft className="w-4 h-4" />
+          <span>{t('cart.continueShopping')}</span>
+          {dir === 'rtl' ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
         </button>
       </div>
     );
@@ -588,19 +620,19 @@ export const CartScreen: React.FC = () => {
 
   // 3. Active Cart Screen
   return (
-    <div className="p-4 space-y-4 pb-32 max-w-3xl mx-auto" dir="rtl">
+    <div className="p-4 space-y-4 pb-32 max-w-3xl mx-auto" dir={dir}>
       
       {/* Top Header with City Badge */}
       <div className="flex items-center justify-between flex-wrap gap-2">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="font-black text-lg text-stone-900">سلة المشتريات</h1>
+            <h1 className="font-black text-lg text-stone-900">{t('cart.title')}</h1>
             <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-bold px-2 py-0.5 rounded-lg flex items-center gap-1">
               <MapPin className="w-3 h-3 text-emerald-700" />
-              <span>خدمة توصيل غرايفسفالد</span>
+              <span>{t('home.cityDeliveryBadge') || 'Greifswald Delivery'}</span>
             </span>
           </div>
-          <p className="text-xs text-stone-500 font-medium">{cartCount} أصناف محددة في طلبك</p>
+          <p className="text-xs text-stone-500 font-medium">{cartCount} {t('common.products')}</p>
         </div>
 
         <button
@@ -608,7 +640,7 @@ export const CartScreen: React.FC = () => {
           className="text-xs text-rose-600 hover:text-rose-700 font-bold flex items-center gap-1 cursor-pointer bg-rose-50 px-3 py-1.5 rounded-xl border border-rose-200/60 hover:bg-rose-100 transition-colors"
         >
           <Trash2 className="w-3.5 h-3.5" />
-          <span>تفريغ السلة</span>
+          <span>{t('cart.clearCart')}</span>
         </button>
       </div>
 
@@ -617,6 +649,7 @@ export const CartScreen: React.FC = () => {
         {cart.map((item) => {
           const maxStock = getItemStock(item);
           const isAtMaxStock = item.quantity >= maxStock;
+          const localizedItemName = getProductName(item.product);
 
           return (
             <div 
@@ -630,7 +663,7 @@ export const CartScreen: React.FC = () => {
               >
                 <OptimizedImage 
                   src={item.product.image} 
-                  alt={item.product.nameAr || item.product.name}
+                  alt={localizedItemName}
                   className="w-full h-full object-cover" 
                   targetWidth={140}
                   quality={75}
@@ -643,11 +676,11 @@ export const CartScreen: React.FC = () => {
                   onClick={() => navigateTo('product-detail', { productId: item.product.id })}
                   className="font-bold text-xs sm:text-sm text-stone-900 line-clamp-1 cursor-pointer hover:text-emerald-800 transition-colors"
                 >
-                  {item.product.nameAr || item.product.name}
+                  {localizedItemName}
                 </h3>
                 
                 <div className="flex items-center gap-2 text-[10px] text-stone-500">
-                  <span>{item.product.unit || 'قطعة'}</span>
+                  <span>{item.product.unit || t('products.unitPiece')}</span>
                   {item.product.weight && <span>• {item.product.weight}</span>}
                   {item.product.brand && <span>• {item.product.brand}</span>}
                 </div>
@@ -656,15 +689,15 @@ export const CartScreen: React.FC = () => {
                 {isAtMaxStock && (
                   <div className="flex items-center gap-1 text-[10px] text-amber-700 font-bold">
                     <AlertTriangle className="w-3 h-3" />
-                    <span>الحد الأقصى المتاح بالمخزن ({maxStock})</span>
+                    <span>{t('cart.maxStockLimit').replace('{stock}', String(maxStock))}</span>
                   </div>
                 )}
 
                 {/* Price Display */}
                 <div className="text-xs font-black text-emerald-800 font-sans pt-0.5">
                   {currencySymbol || '€'}{(item.product.price * item.quantity).toFixed(2)}
-                  <span className="text-[10px] text-stone-400 font-normal mr-1.5">
-                    ({currencySymbol || '€'}{item.product.price.toFixed(2)} للقطعة)
+                  <span className="text-[10px] text-stone-400 font-normal mx-1.5">
+                    ({currencySymbol || '€'}{item.product.price.toFixed(2)} / {item.product.unit || t('products.unitPiece')})
                   </span>
                 </div>
               </div>
@@ -674,8 +707,8 @@ export const CartScreen: React.FC = () => {
                 <button
                   onClick={() => removeFromCart(item.product.id)}
                   className="text-stone-400 hover:text-rose-600 p-1.5 rounded-lg hover:bg-rose-50 cursor-pointer transition-colors"
-                  title="حذف الصنف من السلة"
-                  aria-label="حذف"
+                  title={t('common.delete')}
+                  aria-label={t('common.delete')}
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -685,7 +718,7 @@ export const CartScreen: React.FC = () => {
                   <button
                     onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
                     className="w-7 h-7 rounded-lg bg-white text-stone-700 flex items-center justify-center text-xs font-bold cursor-pointer hover:bg-stone-100 shadow-2xs transition-colors"
-                    aria-label="تقليل الكمية"
+                    aria-label="-"
                   >
                     <Minus className="w-3.5 h-3.5" />
                   </button>
@@ -698,8 +731,8 @@ export const CartScreen: React.FC = () => {
                     onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
                     disabled={isAtMaxStock}
                     className="w-7 h-7 rounded-lg bg-white text-stone-700 flex items-center justify-center text-xs font-bold cursor-pointer hover:bg-stone-100 shadow-2xs transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                    aria-label="زيادة الكمية"
-                    title={isAtMaxStock ? `الحد الأقصى للمخزون هو ${maxStock}` : 'زيادة'}
+                    aria-label="+"
+                    title={isAtMaxStock ? `${t('cart.maxStockLimit').replace('{stock}', String(maxStock))}` : '+'}
                   >
                     <Plus className="w-3.5 h-3.5" />
                   </button>
@@ -715,10 +748,10 @@ export const CartScreen: React.FC = () => {
         <div className="bg-rose-50 border border-rose-200 p-4 rounded-3xl text-rose-900 shadow-2xs space-y-1">
           <div className="flex items-center gap-2 font-bold text-xs">
             <span className="w-2.5 h-2.5 rounded-full bg-rose-600 animate-ping" />
-            <span>المتجر مغلق حاليًا لاستقبال الطلبات الجديدة</span>
+            <span>{t('home.closedStore')}</span>
           </div>
           <p className="text-[11px] text-rose-700">
-            {storeSettings.closedMessageAr || 'المتجر مغلق حاليًا لاستقبال الطلبات الجديدة. يمكنك تصفح المنتجات وسنعاود الفتح قريبًا!'}
+            {storeSettings.closedMessageAr || t('home.closedBanner')}
           </p>
           {storeSettings.closedMessageDe && (
             <p className="text-[10px] text-rose-600 font-sans italic border-t border-rose-100 pt-1 mt-1">
@@ -736,12 +769,12 @@ export const CartScreen: React.FC = () => {
         <div className="flex-1">
           {cartTotal >= freeThreshold ? (
             <span className="font-bold block text-emerald-900">
-              🎉 تهانينا! لقد حصلت على توصيل مجاني لطلبك.
+              {t('cart.freeDeliveryUnlocked')}
             </span>
           ) : (
             <div className="space-y-1">
               <span>
-                أضف منتجات بقيمة <strong className="font-sans font-bold text-emerald-800">{currencySymbol || '€'}{(freeThreshold - cartTotal).toFixed(2)}</strong> إضافية للحصول على توصيل مجاني!
+                {t('cart.freeDeliveryProgress').replace('{amount}', (freeThreshold - cartTotal).toFixed(2))}
               </span>
               <div className="w-full bg-emerald-200/70 h-1.5 rounded-full overflow-hidden">
                 <div 
@@ -757,30 +790,27 @@ export const CartScreen: React.FC = () => {
       {/* Minimum Order Amount Warning */}
       {isBelowMinOrder && (
         <div className="bg-amber-50 border border-amber-200/80 p-3 rounded-2xl flex items-center gap-2 text-xs text-amber-900">
-          <span className="font-bold">⚠️ الحد الأدنى للطلب:</span>
-          <span>
-            يجب أن يصل مجموع السلة إلى <strong className="font-sans font-bold text-amber-950">{currencySymbol || '€'}{minOrderAmount.toFixed(2)}</strong> لإتمام الطلب (متبقي {currencySymbol || '€'}{(minOrderAmount - cartTotal).toFixed(2)}).
-          </span>
+          <span className="font-bold">⚠️ {t('checkout.minOrderError').replace('{min}', minOrderAmount.toFixed(2))}</span>
         </div>
       )}
 
       {/* Order Calculations Summary */}
       <div className="bg-white p-4 rounded-3xl border border-stone-200/80 shadow-2xs space-y-2.5 text-xs">
         <h4 className="font-black text-xs text-stone-900 border-b border-stone-100 pb-2 flex items-center justify-between">
-          <span>ملخص الفاتورة والحساب</span>
-          <span className="text-[11px] text-stone-400 font-normal">{cartCount} قطع</span>
+          <span>{t('cart.summary')}</span>
+          <span className="text-[11px] text-stone-400 font-normal">{cartCount} {t('common.products')}</span>
         </h4>
         
         <div className="flex justify-between text-stone-600">
-          <span>المجموع الفرعي:</span>
+          <span>{t('cart.subtotal')}:</span>
           <span className="font-sans font-bold text-stone-900">{currencySymbol || '€'}{cartTotal.toFixed(2)}</span>
         </div>
         
         <div className="flex justify-between text-stone-600">
-          <span>رسوم الشحن والتوصيل:</span>
+          <span>{t('cart.deliveryFee')}:</span>
           <span className="font-sans font-bold">
             {deliveryFee === 0 ? (
-              <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md font-bold">مجاني</span>
+              <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md font-bold">{t('cart.freeDelivery')}</span>
             ) : (
               <span>{currencySymbol || '€'}{deliveryFee.toFixed(2)}</span>
             )}
@@ -788,7 +818,7 @@ export const CartScreen: React.FC = () => {
         </div>
 
         <div className="pt-2 border-t border-stone-100 flex justify-between text-sm font-black text-stone-900">
-          <span>المجموع الكلي النهائي:</span>
+          <span>{t('cart.total')}:</span>
           <span className="text-emerald-800 font-sans text-base">{currencySymbol || '€'}{finalTotal.toFixed(2)}</span>
         </div>
       </div>
@@ -799,14 +829,14 @@ export const CartScreen: React.FC = () => {
           <div className="flex items-center justify-between border-b border-stone-100 pb-2.5">
             <h3 className="font-black text-sm text-stone-900 flex items-center gap-1.5">
               <MapPin className="w-4 h-4 text-emerald-800" />
-              <span>بيانات التوصيل ومتابعة الطلب (Greifswald)</span>
+              <span>{t('checkout.title')} (Greifswald)</span>
             </h3>
             <button
               type="button"
               onClick={() => setShowCheckoutForm(false)}
               className="text-stone-400 hover:text-stone-700 text-xs font-bold cursor-pointer"
             >
-              إلغاء
+              {t('common.cancel')}
             </button>
           </div>
 
@@ -815,12 +845,12 @@ export const CartScreen: React.FC = () => {
             <div className="space-y-1">
               <label className="text-[11px] font-bold text-stone-700 flex items-center gap-1">
                 <User className="w-3.5 h-3.5 text-stone-400" />
-                <span>اسم المستلم الكامل: *</span>
+                <span>{t('checkout.fullName')} *</span>
               </label>
               <input
                 type="text"
                 required
-                placeholder="مثال: أحمد الصالح"
+                placeholder="Full Name"
                 value={customerName}
                 onChange={(e) => setCustomerName(e.target.value)}
                 className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs focus:bg-white focus:border-emerald-700 focus:outline-hidden font-bold"
@@ -830,12 +860,12 @@ export const CartScreen: React.FC = () => {
             <div className="space-y-1">
               <label className="text-[11px] font-bold text-stone-700 flex items-center gap-1">
                 <Phone className="w-3.5 h-3.5 text-stone-400" />
-                <span>رقم الهاتف / الواتساب للتوصيل: *</span>
+                <span>{t('checkout.phone')} *</span>
               </label>
               <input
                 type="tel"
                 required
-                placeholder="مثال: +49 157 12345678"
+                placeholder="+49 157 12345678"
                 value={customerPhone}
                 onChange={(e) => setCustomerPhone(e.target.value)}
                 className="w-full bg-stone-50 border border-stone-200 rounded-xl px-3 py-2 text-xs focus:bg-white focus:border-emerald-700 focus:outline-hidden font-sans font-bold"
@@ -843,17 +873,17 @@ export const CartScreen: React.FC = () => {
             </div>
           </div>
 
-          {/* Section: عنوان التوصيل (Delivery Address) */}
+          {/* Section: Delivery Address */}
           <div className="bg-stone-50/70 p-3.5 rounded-2xl border border-stone-200/80 space-y-3.5">
             
             {/* Header with Service Note */}
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-stone-900 flex items-center gap-1.5">
                 <Navigation className="w-3.5 h-3.5 text-emerald-800" />
-                <span>عنوان التوصيل (Lieferadresse)</span>
+                <span>{t('checkout.deliveryAddress')}</span>
               </span>
               <span className="text-[10px] bg-emerald-50 text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded-md font-bold">
-                منطقة الخدمة: Greifswald
+                Greifswald
               </span>
             </div>
 
@@ -863,7 +893,7 @@ export const CartScreen: React.FC = () => {
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold text-emerald-900 flex items-center gap-1.5">
                     <Home className="w-4 h-4 text-emerald-700" />
-                    <span>العنوان المحفوظ في حسابك:</span>
+                    <span>{t('profile.savedAddresses')}:</span>
                   </span>
                   <button
                     type="button"
@@ -871,7 +901,7 @@ export const CartScreen: React.FC = () => {
                     className="text-[11px] text-emerald-800 hover:text-emerald-950 font-bold underline cursor-pointer flex items-center gap-1"
                   >
                     <Edit3 className="w-3 h-3" />
-                    <span>{useSavedAddress ? 'تعديل أو إدخال عنوان مختلف' : 'استخدام هذا العنوان'}</span>
+                    <span>{useSavedAddress ? t('common.edit') : t('checkout.useThisAddress') || 'Use this address'}</span>
                   </button>
                 </div>
 
@@ -888,20 +918,20 @@ export const CartScreen: React.FC = () => {
 
                     <div className="flex items-center gap-1.5 text-stone-700 text-[11px]">
                       <Bell className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                      <span>الاسم على الجرس (Klingel): </span>
+                      <span>{t('checkout.bellName')}: </span>
                       <strong className="text-stone-900">{customerBellName || customerName}</strong>
                     </div>
 
                     {(customerFloor || customerApartment) && (
                       <div className="text-[11px] text-stone-600 flex items-center gap-2">
-                        {customerFloor && <span>الطابق: <strong className="text-stone-800">{customerFloor}</strong></span>}
-                        {customerApartment && <span>الشقة: <strong className="text-stone-800">{customerApartment}</strong></span>}
+                        {customerFloor && <span>{t('checkout.floor')}: <strong className="text-stone-800">{customerFloor}</strong></span>}
+                        {customerApartment && <span>{t('checkout.apartment')}: <strong className="text-stone-800">{customerApartment}</strong></span>}
                       </div>
                     )}
 
                     {customerDeliveryNotes && (
                       <div className="text-[10px] text-stone-500 bg-white p-2 rounded-lg border border-stone-100 mt-1">
-                        ملاحظات التوصيل: {customerDeliveryNotes}
+                        {t('checkout.deliveryNotes')}: {customerDeliveryNotes}
                       </div>
                     )}
                   </div>
@@ -918,7 +948,7 @@ export const CartScreen: React.FC = () => {
                   <label className="text-[11px] font-bold text-stone-700 flex items-center justify-between">
                     <span className="flex items-center gap-1">
                       <MapPin className="w-3.5 h-3.5 text-emerald-700" />
-                      <span>المنطقة / الحي في غرايفسفالد (Stadtteil): *</span>
+                      <span>{t('checkout.cityArea') || 'Stadtteil (Greifswald)'}: *</span>
                     </span>
                     <span className="text-[10px] text-emerald-700 font-bold">
                       {selectedCityAreaId ? (deliveryService.getAreaById(selectedCityAreaId)?.nameDe || '') : ''}
@@ -936,7 +966,7 @@ export const CartScreen: React.FC = () => {
                   >
                     {cityAreas.map((area) => (
                       <option key={area.id} value={area.id}>
-                        {area.nameAr} - {area.nameDe} (PLZ {area.plz})
+                        {area.nameDe} - {area.nameAr} (PLZ {area.plz})
                       </option>
                     ))}
                   </select>
@@ -956,7 +986,7 @@ export const CartScreen: React.FC = () => {
                               : 'bg-white text-stone-700 border-stone-200 hover:bg-stone-100'
                           }`}
                         >
-                          {area.nameAr}
+                          {area.nameDe}
                         </button>
                       );
                     })}
@@ -966,9 +996,9 @@ export const CartScreen: React.FC = () => {
                 {/* 2. Street Input with Live Auto-Suggestions Dropdown for selected area */}
                 <div className="relative space-y-1">
                   <label className="text-[11px] font-bold text-stone-700 flex items-center justify-between">
-                    <span>الشارع (Straße): *</span>
+                    <span>{t('checkout.street')} *</span>
                     <span className="text-[10px] text-stone-400 font-normal">
-                      {selectedCityAreaId ? `اقتراحات شوارع ${deliveryService.getAreaById(selectedCityAreaId)?.nameAr}` : 'اكتب اسم الشارع'}
+                      {selectedCityAreaId ? `Greifswald ${deliveryService.getAreaById(selectedCityAreaId)?.nameDe}` : ''}
                     </span>
                   </label>
                   
@@ -977,7 +1007,7 @@ export const CartScreen: React.FC = () => {
                       ref={streetInputRef}
                       type="text"
                       required
-                      placeholder="مثال: Lange Straße أو Makarenkostraße"
+                      placeholder="z.B. Lange Straße oder Makarenkostraße"
                       value={customerStreet}
                       onFocus={() => setShowStreetDropdown(true)}
                       onChange={(e) => {
@@ -996,7 +1026,7 @@ export const CartScreen: React.FC = () => {
                   {showStreetDropdown && filteredStreetSuggestions.length > 0 && (
                     <div className="absolute z-30 right-0 left-0 mt-1 bg-white border border-stone-200 rounded-2xl shadow-xl overflow-hidden max-h-52 overflow-y-auto">
                       <div className="p-1.5 bg-stone-50 border-b border-stone-100 text-[10px] text-stone-500 font-bold flex justify-between items-center">
-                        <span>شوارع معتمدة في {deliveryService.getAreaById(selectedCityAreaId)?.nameAr || 'المنطقة'}:</span>
+                        <span>{deliveryService.getAreaById(selectedCityAreaId)?.nameDe || 'Greifswald'}:</span>
                         <button
                           type="button"
                           onClick={() => setShowStreetDropdown(false)}
@@ -1013,7 +1043,7 @@ export const CartScreen: React.FC = () => {
                         >
                           <div>
                             <span className="font-bold text-stone-900 block">{st.name}</span>
-                            <span className="text-[10px] text-stone-500">{st.zoneNameAr}</span>
+                            <span className="text-[10px] text-stone-500">{st.zoneNameDe || st.zoneNameAr}</span>
                           </div>
                           <span className="font-mono text-[10px] bg-stone-100 text-stone-700 px-1.5 py-0.5 rounded-md font-bold">
                             PLZ {st.plz}
@@ -1028,12 +1058,12 @@ export const CartScreen: React.FC = () => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   {/* House Number */}
                   <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-stone-700">رقم البناء / المنزل (Hausnummer): *</label>
+                    <label className="text-[11px] font-bold text-stone-700">{t('checkout.houseNumber')} *</label>
                     <input
                       ref={houseNumberInputRef}
                       type="text"
                       required
-                      placeholder="مثال: 12 أو 4A"
+                      placeholder="z.B. 12 oder 4A"
                       value={customerHouseNumber}
                       onChange={(e) => setCustomerHouseNumber(e.target.value)}
                       className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-700 focus:outline-hidden font-bold"
@@ -1045,15 +1075,14 @@ export const CartScreen: React.FC = () => {
                     <label className="text-[11px] font-bold text-stone-700 flex items-center justify-between">
                       <span className="flex items-center gap-1 text-emerald-950 font-black">
                         <Bell className="w-3.5 h-3.5 text-amber-600" />
-                        <span>الاسم على الجرس (Klingel): *</span>
+                        <span>{t('checkout.bellName')} *</span>
                       </span>
-                      <span className="text-[9px] text-amber-700 bg-amber-50 px-1.5 py-0.2 rounded font-bold">مهم للسائق</span>
                     </label>
                     <input
                       ref={bellNameInputRef}
                       type="text"
                       required
-                      placeholder="مثال: Al-Saleh أو عائلة الصالح"
+                      placeholder="z.B. Schmidt / Al-Saleh"
                       value={customerBellName}
                       onChange={(e) => setCustomerBellName(e.target.value)}
                       className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-700 focus:outline-hidden font-bold text-stone-900"
@@ -1064,10 +1093,10 @@ export const CartScreen: React.FC = () => {
                 {/* 4. Floor (Etage) and Apartment / Door Location (Wohnung) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                   <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-stone-700">الطابق (Etage / Stockwerk):</label>
+                    <label className="text-[11px] font-bold text-stone-700">{t('checkout.floor')}</label>
                     <input
                       type="text"
-                      placeholder="مثال: الطابق الثاني / 2. OG / EG"
+                      placeholder="z.B. 2. OG / EG"
                       value={customerFloor}
                       onChange={(e) => setCustomerFloor(e.target.value)}
                       className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-700 focus:outline-hidden font-medium text-stone-800"
@@ -1075,10 +1104,10 @@ export const CartScreen: React.FC = () => {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-stone-700">رقم الشقة أو الجهة (Wohnungsnr.):</label>
+                    <label className="text-[11px] font-bold text-stone-700">{t('checkout.apartment')}</label>
                     <input
                       type="text"
-                      placeholder="مثال: شقة 14 / rechts / links"
+                      placeholder="z.B. Nr. 14 / links / rechts"
                       value={customerApartment}
                       onChange={(e) => setCustomerApartment(e.target.value)}
                       className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-700 focus:outline-hidden font-medium text-stone-800"
@@ -1091,7 +1120,7 @@ export const CartScreen: React.FC = () => {
                   {/* PLZ with Live Validation Indicator */}
                   <div className="space-y-1">
                     <label className="text-[11px] font-bold text-stone-700 flex items-center justify-between">
-                      <span>الرمز البريدي (PLZ): *</span>
+                      <span>PLZ (Greifswald): *</span>
                       <span className="text-[10px] text-stone-400 font-mono">17489, 17491...</span>
                     </label>
 
@@ -1131,11 +1160,11 @@ export const CartScreen: React.FC = () => {
 
                   {/* City */}
                   <div className="space-y-1">
-                    <label className="text-[11px] font-bold text-stone-700">المدينة (Stadt):</label>
+                    <label className="text-[11px] font-bold text-stone-700">{t('checkout.city')}</label>
                     <input
                       type="text"
                       required
-                      placeholder="غرايفسفالد (Greifswald)"
+                      placeholder="Greifswald"
                       value={customerCity}
                       onChange={(e) => setCustomerCity(e.target.value)}
                       className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-700 focus:outline-hidden font-bold text-stone-800"
@@ -1148,31 +1177,31 @@ export const CartScreen: React.FC = () => {
                   <div className="flex items-center gap-1.5 text-[11px] text-emerald-800 font-bold bg-emerald-50/60 p-2 rounded-xl border border-emerald-200">
                     <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                     <span>
-                      ✓ {plzValidation.zone?.nameAr || `منطقة ${customerPlz}`} (مشمول في خدمة التوصيل المعتمدة)
+                      ✓ {plzValidation.zone?.nameDe || plzValidation.zone?.nameAr || `PLZ ${customerPlz}`} (Greifswald)
                     </span>
                   </div>
                 ) : plzValidation && !plzValidation.isValid ? (
                   <div className="flex items-center justify-between gap-1 text-[11px] text-rose-700 font-bold bg-rose-50/60 p-2 rounded-xl border border-rose-200">
                     <span className="flex items-center gap-1">
                       <AlertTriangle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
-                      <span>خارج منطقة التوصيل المعتمدة (Greifswald فقط)</span>
+                      <span>Liefergebiet: Greifswald</span>
                     </span>
                     <button
                       type="button"
                       onClick={() => setShowOutOfServiceModal(true)}
                       className="text-[10px] text-rose-800 underline cursor-pointer hover:text-rose-950 font-bold"
                     >
-                      عرض التفاصيل
+                      {t('common.details') || 'Details'}
                     </button>
                   </div>
                 ) : null}
 
                 {/* 6. Driver Delivery Notes */}
                 <div className="space-y-1">
-                  <label className="text-[11px] font-bold text-stone-700">ملاحظات خاصة بالتوصيل أو السائق (اختياري):</label>
+                  <label className="text-[11px] font-bold text-stone-700">{t('checkout.deliveryNotes')}</label>
                   <input
                     type="text"
-                    placeholder="مثال: يرجى ترك الطلب عند الباب أو الاتصال قبل الوصول بـ 5 دقائق"
+                    placeholder={t('checkout.deliveryNotesPlaceholder')}
                     value={customerDeliveryNotes}
                     onChange={(e) => setCustomerDeliveryNotes(e.target.value)}
                     className="w-full bg-white border border-stone-200 rounded-xl px-3 py-2 text-xs focus:border-emerald-700 focus:outline-hidden font-medium"
@@ -1185,9 +1214,9 @@ export const CartScreen: React.FC = () => {
 
           {/* Payment Method Selector (Dynamic from Store Settings) */}
           <div className="space-y-1.5 pt-1">
-            <label className="text-[11px] font-bold text-stone-700 block">طريقة الدفع المفضلة: *</label>
+            <label className="text-[11px] font-bold text-stone-700 block">{t('checkout.selectPaymentMethod')}</label>
             {enabledPaymentMethods.length === 0 ? (
-              <p className="text-rose-600 text-xs font-bold">لا توجد طرق دفع مفعلة حالياً</p>
+              <p className="text-rose-600 text-xs font-bold">Keine Zahlungsmethoden verfügbar</p>
             ) : (
               <div className={`grid gap-2 ${
                 enabledPaymentMethods.length === 1 
@@ -1239,10 +1268,10 @@ export const CartScreen: React.FC = () => {
 
           {/* Special Order Notes */}
           <div className="space-y-1">
-            <label className="text-[11px] font-bold text-stone-700">ملاحظات إضافية للطلب (اختياري):</label>
+            <label className="text-[11px] font-bold text-stone-700">{t('checkout.deliveryNotes')}</label>
             <textarea
               rows={2}
-              placeholder="مثال: يرجى الاتصال قبل الوصول بـ 15 دقيقة..."
+              placeholder={t('checkout.deliveryNotesPlaceholder')}
               value={customerOrderNotes}
               onChange={(e) => setCustomerOrderNotes(e.target.value)}
               className="w-full bg-stone-50 border border-stone-200 rounded-xl p-2.5 text-xs focus:bg-white focus:border-emerald-700 focus:outline-hidden resize-none"
@@ -1258,17 +1287,17 @@ export const CartScreen: React.FC = () => {
             {isCheckingOut ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin text-amber-300" />
-                <span>جاري تأكيد وحفظ الطلب بأمان في السحابة...</span>
+                <span>{t('checkout.placingOrder')}</span>
               </>
             ) : (
               <>
                 <ShoppingBag className="w-4 h-4 text-amber-300" />
                 <span>
                   {!isStoreOpen 
-                    ? 'المتجر مغلق حاليًا' 
+                    ? t('home.closedStore') 
                     : isBelowMinOrder 
-                    ? `الحد الأدنى للطلب ${currencySymbol || '€'}${minOrderAmount.toFixed(2)}` 
-                    : `تأكيد وإتمام الطلب الآن • ${currencySymbol || '€'}${finalTotal.toFixed(2)}`}
+                    ? t('checkout.minOrderError').replace('{min}', minOrderAmount.toFixed(2)) 
+                    : `${t('checkout.confirmAndPlaceOrder')} • ${currencySymbol || '€'}${finalTotal.toFixed(2)}`}
                 </span>
               </>
             )}
@@ -1285,8 +1314,8 @@ export const CartScreen: React.FC = () => {
                   <Lock className="w-4 h-4" />
                 </div>
                 <div>
-                  <p className="font-black text-stone-900 text-xs">تصفح وإضافة المنتجات متاح للجميع</p>
-                  <p className="text-[11px] text-stone-600">سيُطلب منك تسجيل الدخول لحفظ وتأكيد الطلب عند المتابعة.</p>
+                  <p className="font-black text-stone-900 text-xs">{t('auth.loginRequired')}</p>
+                  <p className="text-[11px] text-stone-600">{t('auth.signInToContinue') || 'Please sign in to confirm and save your order'}</p>
                 </div>
               </div>
               <button
@@ -1297,7 +1326,7 @@ export const CartScreen: React.FC = () => {
                 }}
                 className="text-xs font-bold text-emerald-800 bg-white border border-emerald-300 hover:bg-emerald-50 px-3 py-1.5 rounded-xl shrink-0 cursor-pointer shadow-2xs transition-all"
               >
-                تسجيل الدخول
+                {t('auth.login')}
               </button>
             </div>
           )}
@@ -1305,11 +1334,11 @@ export const CartScreen: React.FC = () => {
           <button
             onClick={() => {
               if (!isStoreOpen) {
-                showToast('المتجر مغلق حاليًا لاستقبال الطلبات الجديدة / Derzeit geschlossen');
+                showToast(t('home.closedStore'));
                 return;
               }
               if (isBelowMinOrder) {
-                showToast(`الحد الأدنى للطلب هو ${currencySymbol || '€'}${minOrderAmount.toFixed(2)}`);
+                showToast(t('checkout.minOrderError').replace('{min}', minOrderAmount.toFixed(2)));
                 return;
               }
               if (!currentUser) {
@@ -1326,15 +1355,15 @@ export const CartScreen: React.FC = () => {
               <ShoppingBag className="w-4 h-4 text-amber-300" />
               <span>
                 {!isStoreOpen 
-                  ? 'المتجر مغلق حاليًا' 
+                  ? t('home.closedStore') 
                   : isBelowMinOrder 
-                  ? `الحد الأدنى للطلب ${currencySymbol || '€'}${minOrderAmount.toFixed(2)}` 
-                  : 'متابعة الطلب وتأكيد العنوان'}
+                  ? t('checkout.minOrderError').replace('{min}', minOrderAmount.toFixed(2)) 
+                  : t('cart.checkout')}
               </span>
             </div>
             <div className="flex items-center gap-1 font-sans">
               <span>{currencySymbol || '€'}{finalTotal.toFixed(2)}</span>
-              <ChevronLeft className="w-4 h-4" />
+              {dir === 'rtl' ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
             </div>
           </button>
         </div>
@@ -1342,7 +1371,7 @@ export const CartScreen: React.FC = () => {
 
       {/* Login Prompt Modal for Checkout Protection */}
       {showLoginPromptModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4" dir="rtl">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4" dir={dir}>
           <div className="bg-white rounded-3xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-stone-200 animate-in fade-in zoom-in-95 duration-200">
             
             <div className="flex items-center justify-between border-b border-stone-100 pb-3">
@@ -1352,10 +1381,10 @@ export const CartScreen: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="font-black text-sm text-stone-900">
-                    تسجيل الدخول مطلوب لإتمام الطلب
+                    {t('auth.loginRequired')}
                   </h3>
                   <p className="text-[11px] text-stone-500">
-                    Barakamarkt24 — أمان وسهولة تتبع طلباتك
+                    Barakamarkt24
                   </p>
                 </div>
               </div>
@@ -1369,14 +1398,14 @@ export const CartScreen: React.FC = () => {
 
             <div className="bg-stone-50 p-4 rounded-2xl border border-stone-200/80 space-y-2 text-xs text-stone-700 leading-relaxed">
               <p className="font-bold text-stone-900">
-                أهلاً بك في متجر Barakamarkt24!
+                {t('auth.welcomeBack')}
               </p>
               <p>
-                يمكنك تصفح المنتجات والبحث وإضافة المشتريات إلى سلتك بحرية. لكن لحفظ وتأكيد طلبك وتثبيت عنوان التوصيل وتتبع حالته، يلزم تسجيل الدخول أو إنشاء حساب جديد.
+                {t('auth.loginDesc') || 'Please sign in or create an account to proceed with your order.'}
               </p>
               <div className="pt-2 border-t border-stone-200 flex items-center gap-2 text-emerald-800 font-bold text-[11px]">
                 <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-700" />
-                <span>تبقى جميع المنتجات محفوظة في سلتك وتنتقل معك تلقائياً.</span>
+                <span>{t('cart.itemsSavedNotice') || 'Your cart items are safely saved.'}</span>
               </div>
             </div>
 
@@ -1392,7 +1421,7 @@ export const CartScreen: React.FC = () => {
                 className="w-full bg-emerald-800 hover:bg-emerald-900 text-white font-black py-3.5 px-4 rounded-2xl cursor-pointer text-xs flex items-center justify-center gap-2 shadow-md hover:shadow-lg transition-all"
               >
                 <User className="w-4 h-4 text-amber-300" />
-                <span>تسجيل الدخول / إنشاء حساب جديد</span>
+                <span>{t('auth.login')} / {t('auth.register')}</span>
               </button>
 
               <button
@@ -1400,7 +1429,7 @@ export const CartScreen: React.FC = () => {
                 onClick={() => setShowLoginPromptModal(false)}
                 className="w-full py-2.5 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold rounded-2xl cursor-pointer text-xs transition-colors"
               >
-                الاستمرار في تصفح المتجر
+                {t('cart.continueShopping')}
               </button>
             </div>
 
@@ -1408,9 +1437,9 @@ export const CartScreen: React.FC = () => {
         </div>
       )}
 
-      {/* Out of Service Area Modal (Arabic & German) */}
+      {/* Out of Service Area Modal */}
       {showOutOfServiceModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4" dir="rtl">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4" dir={dir}>
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 space-y-4 shadow-2xl border border-stone-200 animate-in fade-in zoom-in-95 duration-200">
             
             <div className="flex items-center justify-between border-b border-stone-100 pb-3">
@@ -1420,10 +1449,10 @@ export const CartScreen: React.FC = () => {
                 </div>
                 <div>
                   <h3 className="font-extrabold text-sm text-stone-900">
-                    التوصيل متاح حاليًا في Greifswald
+                    Liefergebiet: Greifswald
                   </h3>
                   <p className="text-[11px] text-stone-500 font-sans">
-                    Lieferung derzeit nur in Greifswald
+                    Barakamarkt24
                   </p>
                 </div>
               </div>
@@ -1435,25 +1464,14 @@ export const CartScreen: React.FC = () => {
               </button>
             </div>
 
-            {/* Arabic Message */}
+            {/* Information */}
             <div className="bg-stone-50 p-3.5 rounded-2xl border border-stone-200/80 space-y-1.5 text-xs text-stone-800 leading-relaxed">
               <div className="font-bold text-stone-900 flex items-center gap-1.5">
                 <Info className="w-4 h-4 text-emerald-800" />
-                <span>رسالة التوصيل والمناطق المتاحة:</span>
+                <span>{t('cart.deliveryAreaNotice') || 'Liefergebiet Information'}</span>
               </div>
               <p>
-                شكرًا لاهتمامك بـ <strong>Barakamarkt24</strong>. نخدم الآن مدينة <strong>Greifswald</strong> فقط حتى نضمن سرعة التوصيل وجودة الطلب. إذا كنت خارج المدينة، يمكنك تصفح المنتجات، وسنعمل على التوسع لفروع ومناطق أقرب إليك في المستقبل.
-              </p>
-            </div>
-
-            {/* German Message */}
-            <div className="bg-stone-50 p-3.5 rounded-2xl border border-stone-200/80 space-y-1.5 text-xs text-stone-700 leading-relaxed font-sans" dir="ltr">
-              <div className="font-bold text-stone-900 flex items-center gap-1.5">
-                <Globe className="w-4 h-4 text-emerald-800" />
-                <span>Liefergebiet Information:</span>
-              </div>
-              <p>
-                Vielen Dank für Ihr Interesse an <strong>Barakamarkt24</strong>. Aktuell liefern wir nur in <strong>Greifswald</strong> – so können wir schnelle Lieferung und gute Qualität sicherstellen. Wenn Sie außerhalb wohnen, können Sie die Produkte trotzdem ansehen. Eine Erweiterung in weitere Gebiete ist für die Zukunft geplant.
+                Greifswald (PLZ 17489, 17491, 17493, 17498)
               </p>
             </div>
 
@@ -1471,7 +1489,7 @@ export const CartScreen: React.FC = () => {
                 }}
                 className="flex-1 bg-emerald-800 hover:bg-emerald-900 text-white font-bold py-3 px-4 rounded-xl cursor-pointer text-xs flex items-center justify-center gap-1.5 shadow-sm transition-all"
               >
-                <span>تعديل الرمز البريدي / PLZ ändern</span>
+                <span>PLZ (Greifswald)</span>
               </button>
 
               <button
@@ -1482,7 +1500,7 @@ export const CartScreen: React.FC = () => {
                 }}
                 className="px-4 py-3 bg-stone-100 hover:bg-stone-200 text-stone-800 font-bold rounded-xl cursor-pointer text-xs"
               >
-                تصفح المنتجات
+                {t('cart.continueShopping')}
               </button>
             </div>
 

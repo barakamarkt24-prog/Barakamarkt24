@@ -30,20 +30,54 @@ export const ProductDetailScreen: React.FC = () => {
     products, 
     categories,
     subcategories,
+    cart,
     addToCart, 
+    updateQuantity,
+    removeFromCart,
     toggleWishlist, 
     isInWishlist, 
     goBack, 
     navigateTo,
     showToast,
-    currencySymbol
+    currencySymbol,
+    dir,
+    t,
+    getProductName,
+    getProductDescription
   } = useApp();
+
+  const product = products.find(p => p.id === selectedProductId) || products[0];
+
+  // Real-time synchronization with cart
+  const cartItem = React.useMemo(() => {
+    if (!product) return null;
+    return cart.find(item => item.product.id === product.id || (item.product as any).productId === product.id) || null;
+  }, [cart, product?.id]);
+
+  const currentCartQuantity = cartItem ? cartItem.quantity : 0;
 
   const [quantity, setQuantity] = useState<number>(1);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0);
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
+  const [showAddedSuccess, setShowAddedSuccess] = useState<boolean>(false);
 
-  const product = products.find(p => p.id === selectedProductId) || products[0];
+  // Sync state on product change
+  React.useEffect(() => {
+    if (product) {
+      const existingInCart = cart.find(item => item.product.id === product.id || (item.product as any).productId === product.id);
+      setQuantity(existingInCart ? existingInCart.quantity : 1);
+      setSelectedImageIndex(0);
+      setCopiedLink(false);
+      setShowAddedSuccess(false);
+    }
+  }, [product?.id]);
+
+  // Keep quantity aligned with cart updates
+  React.useEffect(() => {
+    if (currentCartQuantity > 0) {
+      setQuantity(currentCartQuantity);
+    }
+  }, [currentCartQuantity]);
 
   if (!product) {
     return (
@@ -89,18 +123,40 @@ export const ProductDetailScreen: React.FC = () => {
     .filter(p => p.categoryId === product.categoryId && p.id !== product.id && p.isAvailable !== false)
     .slice(0, 4);
 
-  const handleQuantityChange = (newQty: number) => {
-    if (newQty < 1) return;
-    if (newQty > rawStock) {
+  const handleQuantityMinus = () => {
+    if (currentCartQuantity > 0) {
+      if (currentCartQuantity === 1) {
+        removeFromCart(product.id);
+        setQuantity(1);
+        setShowAddedSuccess(false);
+      } else {
+        updateQuantity(product.id, currentCartQuantity - 1);
+        setQuantity(currentCartQuantity - 1);
+      }
+    } else {
+      setQuantity(prev => Math.max(1, prev - 1));
+    }
+  };
+
+  const handleQuantityPlus = () => {
+    const currentVal = currentCartQuantity > 0 ? currentCartQuantity : quantity;
+    if (currentVal >= rawStock) {
       showToast(`الحد الأقصى للمخزون المتوفر هو ${rawStock} ${product.unit || 'قطع'}`);
       return;
     }
-    setQuantity(newQty);
+
+    if (currentCartQuantity > 0) {
+      updateQuantity(product.id, currentCartQuantity + 1);
+      setQuantity(currentCartQuantity + 1);
+    } else {
+      setQuantity(prev => prev + 1);
+    }
   };
 
   const handleAddToCart = () => {
     if (isAvailable) {
       addToCart(product, quantity);
+      setShowAddedSuccess(true);
     }
   };
 
@@ -294,8 +350,8 @@ export const ProductDetailScreen: React.FC = () => {
             
             <div className="flex items-center gap-2 bg-stone-50 p-1.5 rounded-2xl border border-stone-200">
               <button
-                onClick={() => handleQuantityChange(quantity - 1)}
-                disabled={quantity <= 1}
+                onClick={handleQuantityMinus}
+                disabled={currentCartQuantity > 0 ? false : quantity <= 1}
                 className="w-8 h-8 rounded-xl bg-white text-stone-800 flex items-center justify-center font-bold disabled:opacity-40 cursor-pointer shadow-2xs hover:bg-stone-100 transition-colors"
                 aria-label="تقليل الكمية"
               >
@@ -303,12 +359,12 @@ export const ProductDetailScreen: React.FC = () => {
               </button>
               
               <span className="w-8 text-center font-black text-sm font-sans text-stone-900">
-                {quantity}
+                {currentCartQuantity > 0 ? currentCartQuantity : quantity}
               </span>
               
               <button
-                onClick={() => handleQuantityChange(quantity + 1)}
-                disabled={quantity >= rawStock}
+                onClick={handleQuantityPlus}
+                disabled={(currentCartQuantity > 0 ? currentCartQuantity : quantity) >= rawStock}
                 className="w-8 h-8 rounded-xl bg-white text-stone-800 flex items-center justify-center font-bold disabled:opacity-40 cursor-pointer shadow-2xs hover:bg-stone-100 transition-colors"
                 aria-label="زيادة الكمية"
               >
@@ -405,26 +461,127 @@ export const ProductDetailScreen: React.FC = () => {
       </div>
 
       {/* 8. Sticky Bottom Action Bar with Subtotal & Add to Cart button */}
-      <div className="fixed bottom-0 left-0 right-0 sm:max-w-md sm:mx-auto bg-white/95 backdrop-blur-md border-t border-stone-200 p-3.5 z-40 shadow-xl flex items-center justify-between gap-3">
-        <div className="flex flex-col">
-          <span className="text-[10px] text-stone-500 font-medium">الإجمالي ({quantity} {product.unit || 'قطع'}):</span>
-          <span className="text-base font-black text-emerald-800 font-sans">
-            {currencySymbol || '€'}{(product.price * quantity).toFixed(2)}
-          </span>
-        </div>
+      <div className="fixed bottom-0 left-0 right-0 sm:max-w-md sm:mx-auto bg-white/95 backdrop-blur-md border-t border-stone-200 p-3.5 z-40 shadow-xl" dir={dir}>
+        {!isAvailable ? (
+          <button
+            disabled
+            className="w-full bg-stone-100 text-stone-400 font-bold py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2 text-xs sm:text-sm cursor-not-allowed border border-stone-200"
+          >
+            <span>{t('product.outOfStock')}</span>
+          </button>
+        ) : showAddedSuccess ? (
+          /* Success confirmation banner with 2 buttons */
+          <div className="w-full flex flex-col gap-2.5 animate-fadeIn">
+            {/* Success Badge */}
+            <div className="flex items-center justify-center gap-1.5 py-1.5 px-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs sm:text-sm font-black">
+              <Check className="w-4 h-4 text-emerald-600 stroke-[3]" />
+              <span>{t('product.addedSuccessTitle') || '✓ تمت إضافة المنتج بنجاح'}</span>
+            </div>
 
-        <button
-          onClick={handleAddToCart}
-          disabled={!isAvailable}
-          className={`flex-1 py-3.5 px-4 rounded-2xl font-black text-xs sm:text-sm flex items-center justify-center gap-2 transition-all cursor-pointer shadow-md ${
-            !isAvailable
-              ? 'bg-stone-200 text-stone-500 cursor-not-allowed'
-              : 'bg-emerald-800 hover:bg-emerald-900 text-white active:scale-98'
-          }`}
-        >
-          <ShoppingBag className="w-4 h-4 text-amber-300" />
-          <span>{isAvailable ? 'إضافة إلى سلة المشتريات' : 'المنتج غير متوفر بالمخزن'}</span>
-        </button>
+            {/* Action Buttons: Continue Shopping vs Go to Cart */}
+            <div className="flex items-center gap-2.5">
+              <button
+                onClick={() => {
+                  setShowAddedSuccess(false);
+                  goBack();
+                }}
+                className="flex-1 py-3 px-3 rounded-2xl font-bold text-xs sm:text-sm bg-stone-100 hover:bg-stone-200 text-stone-700 active:scale-98 transition-all flex items-center justify-center border border-stone-200 cursor-pointer"
+              >
+                <span>{t('product.continueShopping') || 'متابعة التسوق'}</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowAddedSuccess(false);
+                  navigateTo('cart');
+                }}
+                className="flex-1 py-3 px-3 rounded-2xl font-black text-xs sm:text-sm bg-[#005A36] hover:bg-[#00472a] text-white active:scale-98 transition-all flex items-center justify-center gap-1.5 shadow-md cursor-pointer"
+              >
+                <ShoppingBag className="w-4 h-4 text-amber-300" />
+                <span>{t('product.goToCart') || 'الذهاب إلى السلة'}</span>
+              </button>
+            </div>
+          </div>
+        ) : currentCartQuantity > 0 ? (
+          /* Product is in Cart: Show Full Stepper with Live Subtotal & Direct Modifiers */
+          <div className="flex items-center gap-3">
+            <div className="flex-1 flex items-center justify-between bg-stone-50 border-2 border-emerald-800/30 rounded-2xl p-1.5 shadow-inner">
+              <button
+                onClick={handleQuantityMinus}
+                className="w-11 h-11 rounded-xl bg-white text-stone-800 hover:bg-stone-100 active:scale-95 flex items-center justify-center shadow-xs transition-all cursor-pointer"
+                aria-label="-"
+                title={currentCartQuantity === 1 ? (t('cart.remove') || 'إزالة') : '-'}
+              >
+                <Minus className="w-5 h-5 text-stone-700" />
+              </button>
+
+              <div className="flex flex-col items-center justify-center px-3">
+                <div className="flex items-center gap-1.5">
+                  <span className="font-black text-lg text-stone-900 font-sans">{currentCartQuantity}</span>
+                  <span className="text-[11px] font-bold text-stone-500">{product.unit || 'قطع'}</span>
+                </div>
+                <span className="text-[10px] font-bold text-emerald-800 flex items-center gap-1">
+                  <Check className="w-3 h-3 text-emerald-600 stroke-[3]" />
+                  {t('product.addedToCart')}
+                </span>
+              </div>
+
+              <button
+                onClick={handleQuantityPlus}
+                disabled={currentCartQuantity >= rawStock}
+                className="w-11 h-11 rounded-xl bg-emerald-800 text-white hover:bg-emerald-900 active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center shadow-xs transition-all cursor-pointer"
+                aria-label="+"
+              >
+                <Plus className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Total Price for items currently in cart */}
+            <div className="flex flex-col items-end justify-center min-w-20 sm:min-w-24 px-1 text-end">
+              <span className="text-[10px] text-stone-400 font-medium">{t('cart.subtotal') || 'الإجمالي'}:</span>
+              <span className="text-base sm:text-lg font-black text-emerald-800 font-sans">
+                {currencySymbol || '€'}{(product.price * currentCartQuantity).toFixed(2)}
+              </span>
+            </div>
+          </div>
+        ) : (
+          /* Product is NOT in Cart: Pre-selector Stepper + Big Add to Cart Button */
+          <div className="flex items-center gap-3">
+            {/* Quantity Pre-selector Stepper */}
+            <div className="flex items-center border border-stone-200 rounded-2xl overflow-hidden bg-stone-50 shrink-0">
+              <button
+                onClick={handleQuantityMinus}
+                disabled={quantity <= 1}
+                className="w-10 h-12 flex items-center justify-center text-stone-700 hover:bg-stone-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                aria-label="-"
+              >
+                <Minus className="w-4 h-4" />
+              </button>
+              <span className="w-9 text-center font-black text-stone-900 text-sm font-sans">
+                {quantity}
+              </span>
+              <button
+                onClick={handleQuantityPlus}
+                disabled={quantity >= rawStock}
+                className="w-10 h-12 flex items-center justify-center text-stone-700 hover:bg-stone-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                aria-label="+"
+              >
+                <Plus className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Add to Cart Button */}
+            <button
+              onClick={handleAddToCart}
+              className="flex-1 bg-emerald-800 hover:bg-emerald-900 active:scale-98 text-white font-black h-12 px-4 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 text-xs sm:text-sm cursor-pointer"
+            >
+              <ShoppingBag className="w-4 h-4 text-amber-300" />
+              <span>
+                {`${t('product.addToCart')} • ${currencySymbol || '€'}${((product.price) * quantity).toFixed(2)}`}
+              </span>
+            </button>
+          </div>
+        )}
       </div>
 
     </div>

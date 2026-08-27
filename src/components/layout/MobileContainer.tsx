@@ -5,10 +5,10 @@ import { BottomNav } from './BottomNav';
 import { NetworkStatusBanner } from '../common/NetworkStatusBanner';
 
 export const MobileContainer: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { currentScreen, toast } = useApp();
+  const { currentScreen, toast, dir } = useApp();
 
   return (
-    <div className="min-h-screen bg-stone-100 flex justify-center items-start text-stone-900 font-sans antialiased selection:bg-emerald-700 selection:text-white" dir="rtl">
+    <div className="min-h-screen bg-stone-100 flex justify-center items-start text-stone-900 font-sans antialiased selection:bg-emerald-700 selection:text-white" dir={dir}>
       
       {/* Mobile Device Wrapper (Mobile-First Frame on Desktop, 100% Fullscreen on Mobile) */}
       <div className="w-full sm:max-w-md min-h-screen bg-white shadow-2xl flex flex-col relative overflow-x-hidden border-x border-stone-200/60 pb-20 sm:my-3 sm:rounded-[36px] sm:overflow-hidden sm:min-h-[860px]">

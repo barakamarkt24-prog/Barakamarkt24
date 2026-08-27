@@ -59,3 +59,14 @@
   animation-play-state: paused;
 }
 
+.animate-marquee-ltr {
+  display: flex;
+  width: max-content;
+  animation: tickerLTR 28s linear infinite;
+  will-change: transform;
+}
+
+.animate-marquee-ltr:hover {
+  animation-play-state: paused;
+}
+

@@ -6,22 +6,22 @@ import {
   Percent, 
   Truck, 
   ShieldCheck, 
-  Clock,
-  ChevronLeft,
-  ChevronRight,
-  ShoppingBag,
-  User as UserIcon,
-  LogIn,
-  Tag,
-  ArrowRight,
-  PackagePlus,
-  RefreshCw,
-  AlertCircle,
-  RotateCcw,
-  X,
-  SlidersHorizontal,
-  SearchX,
-  Grid
+  Clock, 
+  ChevronLeft, 
+  ChevronRight, 
+  ShoppingBag, 
+  User as UserIcon, 
+  LogIn, 
+  Tag, 
+  ArrowRight, 
+  PackagePlus, 
+  RefreshCw, 
+  AlertCircle, 
+  RotateCcw, 
+  X, 
+  SlidersHorizontal, 
+  SearchX, 
+  Grid 
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { ProductCard } from '../components/common/ProductCard';
@@ -31,6 +31,7 @@ import { OptimizedImage } from '../components/common/OptimizedImage';
 import { FALLBACK_CATEGORY_IMAGE } from '../utils/imageOptimizer';
 import { BrandLogo } from '../components/common/BrandLogo';
 import { AnnouncementTicker } from '../components/common/AnnouncementTicker';
+import { LanguageSwitcher } from '../components/common/LanguageSwitcher';
 import { orderService } from '../services/orderService';
 import { Order, Product } from '../types';
 import { searchProducts, POPULAR_SEARCH_SUGGESTIONS } from '../utils/searchEngine';
@@ -38,19 +39,23 @@ import { searchProducts, POPULAR_SEARCH_SUGGESTIONS } from '../utils/searchEngin
 export const HomeScreen: React.FC = () => {
   const { 
     categories, 
-    subcategories,
+    subcategories, 
     products, 
     navigateTo, 
-    selectedCategoryId,
-    setSelectedCategoryId,
-    searchQuery,
-    setSearchQuery,
-    cartCount,
-    currentUser,
-    isLoadingProducts,
-    storeSettings,
-    currencySymbol,
-    reorderOrder
+    selectedCategoryId, 
+    setSelectedCategoryId, 
+    searchQuery, 
+    setSearchQuery, 
+    cartCount, 
+    currentUser, 
+    isLoadingProducts, 
+    storeSettings, 
+    currencySymbol, 
+    reorderOrder,
+    dir,
+    t,
+    getCategoryName,
+    getProductName
   } = useApp();
 
   // Local immediate search input state for instantaneous keystroke responsiveness
@@ -198,9 +203,9 @@ export const HomeScreen: React.FC = () => {
   const isSearchActive = Boolean(searchTerm.trim().length > 0);
 
   return (
-    <div className="space-y-4 pb-12 max-w-5xl mx-auto" dir="rtl">
+    <div className="space-y-4 pb-12 max-w-5xl mx-auto" dir={dir}>
       
-      {/* 1. Header with Official Logo, Cart and Account buttons */}
+      {/* 1. Header with Official Logo, Language Switcher, Cart and Account buttons */}
       <header className="bg-white px-4 pt-3 pb-2.5 border-b border-stone-200/80 shadow-2xs sticky top-0 z-40 backdrop-blur-md bg-white/95">
         <div className="flex items-center justify-between gap-3 max-w-5xl mx-auto">
           
@@ -217,15 +222,18 @@ export const HomeScreen: React.FC = () => {
             <BrandLogo variant="compact" size="md" showSubtitle={true} />
           </button>
 
-          {/* Action Buttons: Quick Cart & Account / Login */}
+          {/* Action Buttons: Language Switcher, Quick Cart & Account / Login */}
           <div className="flex items-center gap-2">
             
+            {/* Language Switcher Button */}
+            <LanguageSwitcher variant="compact" />
+
             {/* Quick Cart Button */}
             <button
               onClick={() => navigateTo('cart')}
               className="relative p-2.5 rounded-2xl bg-stone-50 hover:bg-emerald-50 text-stone-700 hover:text-[#005A36] border border-stone-200/80 hover:border-emerald-200 transition-all cursor-pointer active:scale-95 shadow-2xs flex items-center justify-center"
-              aria-label="سلة المشتريات"
-              title="سلة المشتريات"
+              aria-label={t('nav.cart')}
+              title={t('nav.cart')}
             >
               <ShoppingBag className="w-4 h-4" />
               {cartCount > 0 && (
@@ -240,23 +248,23 @@ export const HomeScreen: React.FC = () => {
               <button
                 onClick={() => navigateTo('profile')}
                 className="px-3 py-2 rounded-2xl bg-stone-50 hover:bg-emerald-50 text-stone-700 hover:text-[#005A36] border border-stone-200/80 hover:border-emerald-200 transition-all cursor-pointer active:scale-95 shadow-2xs flex items-center gap-1.5 text-xs font-bold"
-                aria-label="حسابي"
-                title="الملف الشخصي"
+                aria-label={t('nav.profile')}
+                title={t('nav.profile')}
               >
                 <UserIcon className="w-4 h-4 text-[#005A36]" />
                 <span className="hidden sm:inline line-clamp-1 max-w-[90px]">
-                  {currentUser.name ? currentUser.name.split(' ')[0] : 'حسابي'}
+                  {currentUser.name ? currentUser.name.split(' ')[0] : t('nav.profile')}
                 </span>
               </button>
             ) : (
               <button
                 onClick={() => navigateTo('auth')}
                 className="px-3 py-2 rounded-2xl bg-[#005A36] hover:bg-[#00472a] text-white transition-all cursor-pointer active:scale-95 shadow-2xs flex items-center gap-1.5 text-xs font-bold"
-                aria-label="تسجيل الدخول"
-                title="تسجيل الدخول"
+                aria-label={t('auth.loginBtn')}
+                title={t('auth.loginBtn')}
               >
                 <LogIn className="w-3.5 h-3.5 text-[#3B8EAA]" />
-                <span>دخول</span>
+                <span>{t('auth.loginBtn')}</span>
               </button>
             )}
 
@@ -273,9 +281,9 @@ export const HomeScreen: React.FC = () => {
         <div className="mx-4 bg-amber-500/10 border border-amber-500/30 text-amber-950 p-3.5 rounded-2xl flex items-start gap-3 shadow-2xs">
           <AlertCircle className="w-5 h-5 text-amber-700 shrink-0 mt-0.5" />
           <div className="text-xs space-y-0.5">
-            <div className="font-extrabold text-amber-900">المتجر مغلق حاليًا لاستقبال الطلبات الجديدة</div>
+            <div className="font-extrabold text-amber-900">{t('home.storeClosed')}</div>
             <div className="text-[11px] text-amber-800/90 leading-relaxed">
-              {storeSettings.closedMessageAr || 'يمكنك تصفح المنتجات وإضافتها لقائمة الرغبات. نرحب بطلباتكم فور إعادة الافتتاح.'}
+              {storeSettings.closedMessageAr || t('home.storeClosedDesc')}
             </div>
           </div>
         </div>
@@ -286,20 +294,20 @@ export const HomeScreen: React.FC = () => {
         <form onSubmit={handleSearchSubmit} className="relative">
           <input
             type="text"
-            placeholder="ابحث بالاسم، التصنيف، أو الكود (أجبان، زيت، بهارات، Schafskäse)..."
+            placeholder={t('home.searchPlaceholder')}
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full bg-white border border-stone-200 text-xs px-4 py-3 rounded-2xl pr-10 pl-20 focus:border-[#005A36] focus:ring-2 focus:ring-[#005A36]/10 focus:outline-hidden shadow-2xs text-stone-900 placeholder:text-stone-400 transition-all font-medium"
+            className={`w-full bg-white border border-stone-200 text-xs px-4 py-3 rounded-2xl ${dir === 'rtl' ? 'pr-10 pl-20' : 'pl-10 pr-20'} focus:border-[#005A36] focus:ring-2 focus:ring-[#005A36]/10 focus:outline-hidden shadow-2xs text-stone-900 placeholder:text-stone-400 transition-all font-medium`}
           />
-          <Search className="w-4 h-4 text-[#005A36] absolute right-3.5 top-1/2 -translate-y-1/2" />
+          <Search className={`w-4 h-4 text-[#005A36] absolute ${dir === 'rtl' ? 'right-3.5' : 'left-3.5'} top-1/2 -translate-y-1/2`} />
           
-          <div className="absolute left-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
+          <div className={`absolute ${dir === 'rtl' ? 'left-1.5' : 'right-1.5'} top-1/2 -translate-y-1/2 flex items-center gap-1`}>
             {searchTerm.trim().length > 0 && (
               <button
                 type="button"
                 onClick={handleClearSearch}
                 className="p-1.5 text-stone-400 hover:text-stone-700 rounded-lg hover:bg-stone-100 transition-colors"
-                title="مسح البحث"
+                title={t('common.clear')}
               >
                 <X className="w-3.5 h-3.5" />
               </button>
@@ -308,7 +316,7 @@ export const HomeScreen: React.FC = () => {
               type="submit"
               className="bg-[#005A36] hover:bg-[#00472a] text-white text-[11px] font-bold px-3 py-1.5 rounded-xl cursor-pointer transition-colors active:scale-95 shadow-2xs"
             >
-              بحث
+              {t('common.search')}
             </button>
           </div>
         </form>
@@ -317,22 +325,25 @@ export const HomeScreen: React.FC = () => {
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar pt-0.5">
           <span className="text-[10px] text-stone-400 font-bold shrink-0 flex items-center gap-1">
             <Sparkles className="w-3 h-3 text-[#3B8EAA]" />
-            شائع:
+            {t('home.popular')}:
           </span>
-          {POPULAR_SEARCH_SUGGESTIONS.map((sug, idx) => (
-            <button
-              key={idx}
-              type="button"
-              onClick={() => handleSelectQuickTag(sug.query)}
-              className={`text-[10px] font-bold px-2.5 py-1 rounded-xl shrink-0 transition-all cursor-pointer ${
-                searchTerm.trim() === sug.query
-                  ? 'bg-[#005A36] text-white shadow-2xs'
-                  : 'bg-white hover:bg-stone-100 text-stone-600 border border-stone-200/70'
-              }`}
-            >
-              {sug.label}
-            </button>
-          ))}
+          {POPULAR_SEARCH_SUGGESTIONS.map((sug, idx) => {
+            const label = t(sug.key) !== sug.key ? t(sug.key) : sug.fallbackLabel;
+            return (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => handleSelectQuickTag(sug.query)}
+                className={`text-[10px] font-bold px-2.5 py-1 rounded-xl shrink-0 transition-all cursor-pointer ${
+                  searchTerm.trim() === sug.query
+                    ? 'bg-[#005A36] text-white shadow-2xs'
+                    : 'bg-white hover:bg-stone-100 text-stone-600 border border-stone-200/70'
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
         </div>
       </div>
 
@@ -346,11 +357,11 @@ export const HomeScreen: React.FC = () => {
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="font-extrabold text-sm text-stone-900 flex items-center gap-1.5">
-                  <span>نتائج البحث عن:</span>
+                  <span>{t('home.searchResultsFor')}:</span>
                   <span className="text-[#005A36] font-serif font-black">"{searchTerm}"</span>
                 </h3>
                 <p className="text-[11px] text-stone-500 font-medium pt-0.5">
-                  تم العثور على <span className="font-bold text-stone-800 font-sans">{searchResults.length}</span> منتج متوفر
+                  {t('home.foundProducts', { count: searchResults.length })}
                 </p>
               </div>
               <button
@@ -359,7 +370,7 @@ export const HomeScreen: React.FC = () => {
                 className="text-xs text-rose-600 hover:text-rose-700 bg-rose-50 border border-rose-200/60 font-bold px-2.5 py-1.5 rounded-xl flex items-center gap-1 cursor-pointer transition-colors shadow-2xs active:scale-95"
               >
                 <X className="w-3.5 h-3.5" />
-                <span>إلغاء البحث</span>
+                <span>{t('home.clearSearch')}</span>
               </button>
             </div>
 
@@ -367,7 +378,7 @@ export const HomeScreen: React.FC = () => {
             {searchResults.some(r => r.isFuzzyMatch) && (
               <div className="bg-teal-50 border border-teal-200/70 text-[#2B7A8D] text-[11px] font-medium p-2 rounded-xl flex items-center gap-1.5">
                 <Sparkles className="w-3.5 h-3.5 text-[#3B8EAA] shrink-0" />
-                <span>عرضنا نتائج مطابقة وتقريبية ذكية تشمل الكلمات المشابهة لبحثك.</span>
+                <span>{t('home.fuzzyNotice')}</span>
               </div>
             )}
 
@@ -382,7 +393,7 @@ export const HomeScreen: React.FC = () => {
                       : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50'
                   }`}
                 >
-                  جميع النتائج ({searchResults.length})
+                  {t('home.allResults')} ({searchResults.length})
                 </button>
                 {searchResultCategories.map((cat) => {
                   const catMatchesCount = searchResults.filter(r => r.product.categoryId === cat.id).length;
@@ -396,7 +407,7 @@ export const HomeScreen: React.FC = () => {
                           : 'bg-white text-stone-600 border border-stone-200 hover:bg-stone-50'
                       }`}
                     >
-                      {cat.nameAr || cat.name} ({catMatchesCount})
+                      {getCategoryName(cat)} ({catMatchesCount})
                     </button>
                   );
                 })}
@@ -412,26 +423,29 @@ export const HomeScreen: React.FC = () => {
               </div>
               <div className="space-y-1">
                 <h4 className="font-extrabold text-sm text-stone-900">
-                  لم نجد أي منتج يطابق "{searchTerm}"
+                  {t('home.noResultsFound')} "{searchTerm}"
                 </h4>
                 <p className="text-xs text-stone-500 leading-relaxed max-w-sm mx-auto">
-                  تأكد من كتابة الكلمة بشكل صحيح، أو جرب البحث بكلمات عامة مثل (جبن، زيت، فريكة، زعتر) أو باللغة الألمانية/الإنجليزية (Käse, Oil).
+                  {t('home.noResultsDesc')}
                 </p>
               </div>
 
               {/* Suggestions to click */}
               <div className="space-y-2 pt-2 border-t border-stone-100">
-                <span className="text-xs font-bold text-stone-700 block">اقتراحات بحث شائعة:</span>
+                <span className="text-xs font-bold text-stone-700 block">{t('home.popularSuggestions')}:</span>
                 <div className="flex flex-wrap justify-center gap-1.5">
-                  {POPULAR_SEARCH_SUGGESTIONS.map((sug, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => handleSelectQuickTag(sug.query)}
-                      className="text-xs font-bold px-3 py-1.5 rounded-xl bg-stone-100 hover:bg-emerald-50 hover:text-[#005A36] text-stone-700 border border-stone-200/60 cursor-pointer transition-colors"
-                    >
-                      {sug.label}
-                    </button>
-                  ))}
+                  {POPULAR_SEARCH_SUGGESTIONS.map((sug, idx) => {
+                    const label = t(sug.key) !== sug.key ? t(sug.key) : sug.fallbackLabel;
+                    return (
+                      <button
+                        key={idx}
+                        onClick={() => handleSelectQuickTag(sug.query)}
+                        className="text-xs font-bold px-3 py-1.5 rounded-xl bg-stone-100 hover:bg-emerald-50 hover:text-[#005A36] text-stone-700 border border-stone-200/60 cursor-pointer transition-colors"
+                      >
+                        {label}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -441,7 +455,7 @@ export const HomeScreen: React.FC = () => {
                   onClick={handleClearSearch}
                   className="bg-[#005A36] hover:bg-[#00472a] text-white font-bold text-xs px-5 py-2.5 rounded-xl shadow-2xs cursor-pointer transition-all active:scale-95"
                 >
-                  مسح البحث وتصفح كافة الأقسام
+                  {t('home.clearAndBrowse')}
                 </button>
               </div>
             </div>
@@ -464,16 +478,16 @@ export const HomeScreen: React.FC = () => {
               <div>
                 <h3 className="font-extrabold text-sm text-stone-900 flex items-center gap-1.5">
                   <Grid className="w-4 h-4 text-[#005A36]" />
-                  <span>أقسام المتجر</span>
+                  <span>{t('home.storeCategories')}</span>
                 </h3>
-                <p className="text-[11px] text-stone-500">اختر قسماً لعرض منتجاته مباشرة</p>
+                <p className="text-[11px] text-stone-500">{t('home.selectCategorySub')}</p>
               </div>
               <button
                 onClick={() => navigateTo('categories')}
                 className="text-xs font-bold text-[#005A36] hover:text-[#00472a] flex items-center gap-0.5 cursor-pointer py-1 px-2 rounded-xl hover:bg-emerald-50 transition-colors"
               >
-                <span>عرض الكل</span>
-                <ChevronLeft className="w-3.5 h-3.5" />
+                <span>{t('common.viewAll')}</span>
+                {dir === 'rtl' ? <ChevronLeft className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
               </button>
             </div>
 
@@ -498,13 +512,14 @@ export const HomeScreen: React.FC = () => {
                   <span className={`text-[10px] font-bold line-clamp-1 leading-tight ${
                     activeCategoryFilter === 'all' ? 'text-[#005A36] font-extrabold' : 'text-stone-700'
                   }`}>
-                    الكل
+                    {t('common.all')}
                   </span>
                 </button>
 
                 {/* Firestore Categories */}
                 {activeCategories.map((cat) => {
                   const isSelected = activeCategoryFilter === cat.id;
+                  const localizedCatName = getCategoryName(cat);
                   return (
                     <button
                       key={cat.id}
@@ -518,7 +533,7 @@ export const HomeScreen: React.FC = () => {
                       }`}>
                         <OptimizedImage 
                           src={cat.image} 
-                          alt={cat.nameAr || cat.name} 
+                          alt={localizedCatName} 
                           className="w-full h-full object-cover rounded-xl group-hover:scale-105 transition-transform"
                           targetWidth={100}
                           quality={75}
@@ -528,7 +543,7 @@ export const HomeScreen: React.FC = () => {
                       <span className={`text-[10px] font-bold line-clamp-1 leading-tight transition-colors ${
                         isSelected ? 'text-[#005A36] font-extrabold' : 'text-stone-800 group-hover:text-[#005A36]'
                       }`}>
-                        {cat.nameAr || cat.name}
+                        {localizedCatName}
                       </span>
                     </button>
                   );
@@ -547,8 +562,8 @@ export const HomeScreen: React.FC = () => {
                       <RotateCcw className="w-3.5 h-3.5 text-[#3B8EAA]" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-xs text-white">آخر مشترياتك</h3>
-                      <p className="text-[10px] text-stone-400">طلب #{lastDeliveredOrder.orderId || lastDeliveredOrder.id}</p>
+                      <h3 className="font-bold text-xs text-white">{t('home.lastPurchases')}</h3>
+                      <p className="text-[10px] text-stone-400">{t('orders.orderNumber')} #{lastDeliveredOrder.orderId || lastDeliveredOrder.id}</p>
                     </div>
                   </div>
                   <button
@@ -556,14 +571,14 @@ export const HomeScreen: React.FC = () => {
                     className="bg-[#3B8EAA] hover:bg-[#2B7A8D] text-white text-[11px] font-bold px-3 py-1.5 rounded-xl cursor-pointer shadow-xs active:scale-95 transition-all flex items-center gap-1.5"
                   >
                     <ShoppingBag className="w-3.5 h-3.5" />
-                    <span>إعادة طلب</span>
+                    <span>{t('orders.reorder')}</span>
                   </button>
                 </div>
 
                 <div className="flex gap-2 overflow-x-auto pb-0.5 no-scrollbar">
                   {lastDeliveredOrder.items.slice(0, 5).map((item, idx) => (
                     <span key={idx} className="bg-stone-800 text-stone-200 text-[10px] px-2 py-1 rounded-lg shrink-0 border border-stone-700/60">
-                      {item.product?.nameAr || item.product?.name} ({item.quantity})
+                      {(item.product ? getProductName(item.product) : item.name) || ''} ({item.quantity})
                     </span>
                   ))}
                 </div>
@@ -582,11 +597,11 @@ export const HomeScreen: React.FC = () => {
                 <div>
                   <h3 className="font-extrabold text-sm text-stone-900">
                     {activeCategoryFilter === 'all'
-                      ? 'المنتجات المتوفرة'
-                      : (categories.find(c => c.id === activeCategoryFilter)?.nameAr || 'منتجات القسم')}
+                      ? t('home.allProducts')
+                      : (categories.find(c => c.id === activeCategoryFilter) ? getCategoryName(categories.find(c => c.id === activeCategoryFilter)!) : t('home.allProducts'))}
                   </h3>
                   <p className="text-[11px] text-stone-500">
-                    {displayedProducts.length} صنف متوفر للتسليم السريع
+                    {displayedProducts.length} {t('common.products')}
                   </p>
                 </div>
               </div>
@@ -604,7 +619,7 @@ export const HomeScreen: React.FC = () => {
                       : 'bg-stone-50 hover:bg-stone-100 text-stone-600 border border-stone-200/70'
                   }`}
                 >
-                  الكل
+                  {t('common.all')}
                 </button>
 
                 <button
@@ -619,7 +634,7 @@ export const HomeScreen: React.FC = () => {
                   }`}
                 >
                   <Percent className="w-3 h-3" />
-                  <span>عروض</span>
+                  <span>{t('home.specialOffers')}</span>
                 </button>
 
                 <button
@@ -634,7 +649,7 @@ export const HomeScreen: React.FC = () => {
                   }`}
                 >
                   <Flame className="w-3 h-3" />
-                  <span>الأكثر طلباً</span>
+                  <span>{t('home.bestsellers')}</span>
                 </button>
 
                 <button
@@ -649,7 +664,7 @@ export const HomeScreen: React.FC = () => {
                   }`}
                 >
                   <Sparkles className="w-3 h-3 text-amber-500" />
-                  <span>وصل حديثاً</span>
+                  <span>{t('home.newArrivals')}</span>
                 </button>
               </div>
             </div>
@@ -661,9 +676,9 @@ export const HomeScreen: React.FC = () => {
               </div>
             ) : displayedProducts.length === 0 ? (
               <EmptyState
-                title="لا توجد منتجات مسجلة في هذا التصنيف حالياً"
-                description="جرب اختيار تصنيف آخر أو تصفح جميع الأصناف المتوفرة لدينا."
-                actionText="عرض جميع المنتجات"
+                title={t('home.noCategoryProducts')}
+                description={t('home.noCategoryProductsDesc')}
+                actionText={t('home.viewAllProducts')}
                 onAction={() => {
                   setActiveCategoryFilter('all');
                   setActiveTabFilter('all');
@@ -686,7 +701,7 @@ export const HomeScreen: React.FC = () => {
                   className="w-full bg-white hover:bg-stone-50 text-stone-800 border border-stone-200/90 text-xs font-bold py-3 rounded-2xl shadow-2xs flex items-center justify-center gap-2 cursor-pointer transition-all active:scale-98"
                 >
                   <RefreshCw className="w-3.5 h-3.5 text-[#005A36]" />
-                  <span>عرض المزيد من المنتجات ({displayedProducts.length - visibleProductsCount} متبقية)</span>
+                  <span>{t('home.loadMore')} ({displayedProducts.length - visibleProductsCount})</span>
                 </button>
               </div>
             )}

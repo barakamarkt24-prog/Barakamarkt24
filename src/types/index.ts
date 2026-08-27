@@ -30,6 +30,15 @@ export type CategoryId =
   | 'baby-infant'
   | 'home-kitchen';
 
+export type Language = 'ar' | 'de' | 'en' | 'uk' | 'fa';
+
+export interface LanguageOption {
+  code: Language;
+  name: string; // Native name
+  dir: 'rtl' | 'ltr';
+  flag: string;
+}
+
 export interface Category {
   id: string;
   categoryId?: string; // alias/normalized
@@ -37,9 +46,14 @@ export interface Category {
   nameAr: string;
   nameEn?: string;
   nameDe?: string;
+  nameUk?: string;
+  nameFa?: string;
   description?: string;
   descriptionAr?: string;
   descriptionEn?: string;
+  descriptionDe?: string;
+  descriptionUk?: string;
+  descriptionFa?: string;
   image: string;
   icon?: string;
   isActive?: boolean;
@@ -58,6 +72,8 @@ export interface Subcategory {
   nameAr: string;
   nameEn?: string;
   nameDe?: string;
+  nameUk?: string;
+  nameFa?: string;
   image?: string;
   isActive?: boolean;
   sortOrder?: number;
@@ -90,10 +106,14 @@ export interface Product {
   nameAr: string;
   nameEn?: string;
   nameDe?: string;
+  nameUk?: string;
+  nameFa?: string;
   description?: string;
   descriptionAr: string;
   descriptionEn?: string;
   descriptionDe?: string;
+  descriptionUk?: string;
+  descriptionFa?: string;
   price: number;
   oldPrice?: number;
   originalPrice?: number;
@@ -297,6 +317,11 @@ export type AnnouncementIconType = 'sparkles' | 'truck' | 'shield' | 'tag' | 'fl
 export interface AnnouncementItem {
   id: string;
   text: string;
+  textAr?: string;
+  textDe?: string;
+  textEn?: string;
+  textUk?: string;
+  textFa?: string;
   isActive: boolean;
   order: number;
   icon?: AnnouncementIconType | string;
@@ -360,8 +385,6 @@ export interface CurrencyConfig {
   nameAr: string;
   nameEn: string;
 }
-
-export type Language = 'ar' | 'en' | 'de';
 
 export interface SyrianRecipeKit {
   id: string;

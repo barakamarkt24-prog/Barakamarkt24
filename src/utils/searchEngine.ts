@@ -152,22 +152,26 @@ export function searchProducts(
   const queryTokens = normalizedQuery.split(' ').filter(t => t.length > 0);
 
   // Map category IDs to normalized names for fast lookup
-  const categoryMap = new Map<string, { ar: string; en: string; de: string }>();
+  const categoryMap = new Map<string, { ar: string; en: string; de: string; uk: string; fa: string }>();
   for (const cat of categories) {
     categoryMap.set(cat.id, {
       ar: normalizeSearchText(cat.nameAr || cat.name || ''),
       en: normalizeSearchText(cat.nameEn || ''),
-      de: normalizeSearchText(cat.nameDe || '')
+      de: normalizeSearchText(cat.nameDe || ''),
+      uk: normalizeSearchText(cat.nameUk || ''),
+      fa: normalizeSearchText(cat.nameFa || '')
     });
   }
 
   // Map subcategory IDs to normalized names
-  const subcategoryMap = new Map<string, { ar: string; en: string; de: string }>();
+  const subcategoryMap = new Map<string, { ar: string; en: string; de: string; uk: string; fa: string }>();
   for (const sub of subcategories) {
     subcategoryMap.set(sub.id, {
       ar: normalizeSearchText(sub.nameAr || sub.name || ''),
       en: normalizeSearchText(sub.nameEn || ''),
-      de: normalizeSearchText(sub.nameDe || '')
+      de: normalizeSearchText(sub.nameDe || ''),
+      uk: normalizeSearchText(sub.nameUk || ''),
+      fa: normalizeSearchText(sub.nameFa || '')
     });
   }
 
@@ -184,13 +188,17 @@ export function searchProducts(
       continue;
     }
 
-    // Normalized searchable fields
+    // Normalized searchable fields across all languages
     const nameArNorm = normalizeSearchText(product.nameAr || product.name || '');
     const nameEnNorm = normalizeSearchText(product.nameEn || '');
     const nameDeNorm = normalizeSearchText(product.nameDe || '');
+    const nameUkNorm = normalizeSearchText(product.nameUk || '');
+    const nameFaNorm = normalizeSearchText(product.nameFa || '');
     const descArNorm = normalizeSearchText(product.descriptionAr || product.description || '');
     const descEnNorm = normalizeSearchText(product.descriptionEn || '');
     const descDeNorm = normalizeSearchText(product.descriptionDe || '');
+    const descUkNorm = normalizeSearchText(product.descriptionUk || '');
+    const descFaNorm = normalizeSearchText(product.descriptionFa || '');
     const brandNorm = normalizeSearchText(product.brand || '');
     const originNorm = normalizeSearchText(product.origin || '');
     const ingredientsNorm = normalizeSearchText(product.ingredientsAr || '');
@@ -201,11 +209,17 @@ export function searchProducts(
     const catArNorm = catInfo?.ar || '';
     const catEnNorm = catInfo?.en || '';
     const catDeNorm = catInfo?.de || '';
+    const catUkNorm = catInfo?.uk || '';
+    const catFaNorm = catInfo?.fa || '';
     const subcatArNorm = subcatInfo?.ar || normalizeSearchText(product.subCategory || '');
+    const subcatEnNorm = subcatInfo?.en || '';
+    const subcatDeNorm = subcatInfo?.de || '';
+    const subcatUkNorm = subcatInfo?.uk || '';
+    const subcatFaNorm = subcatInfo?.fa || '';
 
-    const titleFields = [nameArNorm, nameDeNorm, nameEnNorm].filter(Boolean);
-    const descFields = [descArNorm, descDeNorm, descEnNorm, ingredientsNorm].filter(Boolean);
-    const metaFields = [brandNorm, originNorm, catArNorm, catEnNorm, catDeNorm, subcatArNorm].filter(Boolean);
+    const titleFields = [nameArNorm, nameDeNorm, nameEnNorm, nameUkNorm, nameFaNorm].filter(Boolean);
+    const descFields = [descArNorm, descDeNorm, descEnNorm, descUkNorm, descFaNorm, ingredientsNorm].filter(Boolean);
+    const metaFields = [brandNorm, originNorm, catArNorm, catEnNorm, catDeNorm, catUkNorm, catFaNorm, subcatArNorm, subcatEnNorm, subcatDeNorm, subcatUkNorm, subcatFaNorm].filter(Boolean);
 
     let score = 0;
     const matchedFields: string[] = [];
@@ -372,16 +386,22 @@ export function searchProducts(
   return results.slice(0, limit);
 }
 
+export interface SearchSuggestionItem {
+  key: string;
+  query: string;
+  fallbackLabel: string;
+}
+
 /**
- * Returns popular quick search suggestion keywords in Arabic & English
+ * Returns popular quick search suggestion keywords with multi-language translation keys
  */
-export const POPULAR_SEARCH_SUGGESTIONS = [
-  { label: 'جبنة بلدية', query: 'جبنة' },
-  { label: 'زيت زيتون بكر', query: 'زيت زيتون' },
-  { label: 'مكدوس بلدي', query: 'مكدوس' },
-  { label: 'زعتر حلبي', query: 'زعتر' },
-  { label: 'فريكة شامية', query: 'فريكة' },
-  { label: 'حلاوة وطحينة', query: 'حلاوة' },
-  { label: 'Schafskäse', query: 'schaf' },
-  { label: 'Olivenöl', query: 'oliven' }
+export const POPULAR_SEARCH_SUGGESTIONS: SearchSuggestionItem[] = [
+  { key: 'search.suggestions.cheese', query: 'جبنة', fallbackLabel: 'جبنة بلدية' },
+  { key: 'search.suggestions.oliveOilExtra', query: 'زيت زيتون', fallbackLabel: 'زيت زيتون بكر' },
+  { key: 'search.suggestions.makdous', query: 'مكدوس', fallbackLabel: 'مكدوس بلدي' },
+  { key: 'search.suggestions.zaatar', query: 'زعتر', fallbackLabel: 'زعتر حلبي' },
+  { key: 'search.suggestions.freekeh', query: 'فريكة', fallbackLabel: 'فريكة شامية' },
+  { key: 'search.suggestions.halawa', query: 'حلاوة', fallbackLabel: 'حلاوة وطحينة' },
+  { key: 'search.suggestions.sheepCheese', query: 'schaf', fallbackLabel: 'Schafskäse' },
+  { key: 'search.suggestions.oliveOil', query: 'oliven', fallbackLabel: 'Olivenöl' }
 ];

@@ -256,9 +256,15 @@ export const AdminDashboardScreen: React.FC = () => {
   const [isCategoryModalOpen, setIsCategoryModalOpen] = useState<boolean>(false);
   const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [catName, setCatName] = useState('');
-  const [catNameEn, setCatNameEn] = useState('');
   const [catNameDe, setCatNameDe] = useState('');
+  const [catNameEn, setCatNameEn] = useState('');
+  const [catNameUk, setCatNameUk] = useState('');
+  const [catNameFa, setCatNameFa] = useState('');
   const [catDescription, setCatDescription] = useState('');
+  const [catDescriptionDe, setCatDescriptionDe] = useState('');
+  const [catDescriptionEn, setCatDescriptionEn] = useState('');
+  const [catDescriptionUk, setCatDescriptionUk] = useState('');
+  const [catDescriptionFa, setCatDescriptionFa] = useState('');
   const [catImage, setCatImage] = useState('https://images.unsplash.com/photo-1552767059-ce182ead6c1b?auto=format&fit=crop&w=600&q=80');
   const [catSortOrder, setCatSortOrder] = useState('1');
   const [catIsActive, setCatIsActive] = useState(true);
@@ -268,7 +274,10 @@ export const AdminDashboardScreen: React.FC = () => {
   const [editingSubcategory, setEditingSubcategory] = useState<Subcategory | null>(null);
   const [subCategoryId, setSubCategoryId] = useState('');
   const [subName, setSubName] = useState('');
+  const [subNameDe, setSubNameDe] = useState('');
   const [subNameEn, setSubNameEn] = useState('');
+  const [subNameUk, setSubNameUk] = useState('');
+  const [subNameFa, setSubNameFa] = useState('');
   const [subImage, setSubImage] = useState('');
   const [subSortOrder, setSubSortOrder] = useState('1');
   const [subIsActive, setSubIsActive] = useState(true);
@@ -286,11 +295,15 @@ export const AdminDashboardScreen: React.FC = () => {
   
   // Product Form Fields
   const [prodName, setProdName] = useState('');
-  const [prodNameEn, setProdNameEn] = useState('');
   const [prodNameDe, setProdNameDe] = useState('');
+  const [prodNameEn, setProdNameEn] = useState('');
+  const [prodNameUk, setProdNameUk] = useState('');
+  const [prodNameFa, setProdNameFa] = useState('');
   const [prodDesc, setProdDesc] = useState('');
   const [prodDescDe, setProdDescDe] = useState('');
   const [prodDescEn, setProdDescEn] = useState('');
+  const [prodDescUk, setProdDescUk] = useState('');
+  const [prodDescFa, setProdDescFa] = useState('');
   const [prodPrice, setProdPrice] = useState('');
   const [prodOldPrice, setProdOldPrice] = useState('');
   const [prodDiscount, setProdDiscount] = useState('');
@@ -842,11 +855,15 @@ export const AdminDashboardScreen: React.FC = () => {
   const handleOpenAddProduct = () => {
     setEditingProduct(null);
     setProdName('');
-    setProdNameEn('');
     setProdNameDe('');
+    setProdNameEn('');
+    setProdNameUk('');
+    setProdNameFa('');
     setProdDesc('');
     setProdDescDe('');
     setProdDescEn('');
+    setProdDescUk('');
+    setProdDescFa('');
     setProdPrice('');
     setProdOldPrice('');
     setProdDiscount('');
@@ -871,11 +888,15 @@ export const AdminDashboardScreen: React.FC = () => {
   const handleOpenEditProduct = (p: Product) => {
     setEditingProduct(p);
     setProdName(p.nameAr || p.name || '');
-    setProdNameEn(p.nameEn || '');
     setProdNameDe(p.nameDe || '');
+    setProdNameEn(p.nameEn || '');
+    setProdNameUk(p.nameUk || '');
+    setProdNameFa(p.nameFa || '');
     setProdDesc(p.descriptionAr || p.description || '');
     setProdDescDe(p.descriptionDe || '');
     setProdDescEn(p.descriptionEn || '');
+    setProdDescUk(p.descriptionUk || '');
+    setProdDescFa(p.descriptionFa || '');
     setProdPrice(p.price.toString());
     setProdOldPrice(p.oldPrice ? p.oldPrice.toString() : (p.originalPrice ? p.originalPrice.toString() : ''));
     setProdDiscount(p.discount ? p.discount.toString() : '');
@@ -903,11 +924,15 @@ export const AdminDashboardScreen: React.FC = () => {
     // Open product modal as a NEW product (editingProduct = null) with duplicate data
     setEditingProduct(null);
     setProdName(`${p.nameAr || p.name || ''} (نسخة)`);
-    setProdNameEn(p.nameEn ? `${p.nameEn} (Copy)` : '');
     setProdNameDe(p.nameDe ? `${p.nameDe} (Kopie)` : '');
+    setProdNameEn(p.nameEn ? `${p.nameEn} (Copy)` : '');
+    setProdNameUk(p.nameUk ? `${p.nameUk} (Копія)` : '');
+    setProdNameFa(p.nameFa ? `${p.nameFa} (کپی)` : '');
     setProdDesc(p.descriptionAr || p.description || '');
     setProdDescDe(p.descriptionDe || '');
     setProdDescEn(p.descriptionEn || '');
+    setProdDescUk(p.descriptionUk || '');
+    setProdDescFa(p.descriptionFa || '');
     setProdPrice(p.price.toString());
     setProdOldPrice(p.oldPrice ? p.oldPrice.toString() : (p.originalPrice ? p.originalPrice.toString() : ''));
     setProdDiscount(p.discount ? p.discount.toString() : '');
@@ -947,9 +972,13 @@ export const AdminDashboardScreen: React.FC = () => {
       const res = await translateProductContent(prodName, prodDesc);
       if (res.nameDe) setProdNameDe(res.nameDe);
       if (res.nameEn) setProdNameEn(res.nameEn);
+      if (res.nameUk) setProdNameUk(res.nameUk);
+      if (res.nameFa) setProdNameFa(res.nameFa);
       if (res.descriptionDe) setProdDescDe(res.descriptionDe);
       if (res.descriptionEn) setProdDescEn(res.descriptionEn);
-      showToast('تمت الترجمة وتوليد الأسماء والأوصاف باللغتين بنجاح! يمكنك مراجعتها وتعديلها.');
+      if (res.descriptionUk) setProdDescUk(res.descriptionUk);
+      if (res.descriptionFa) setProdDescFa(res.descriptionFa);
+      showToast('تمت الترجمة وتوليد الأسماء والأوصاف لجميع اللغات بنجاح! يمكنك مراجعتها وتعديلها.');
     } catch (error: any) {
       console.error('Translation failed:', error);
       showToast(error?.message || 'تعذر استكمال الترجمة التلقائية');
@@ -1010,12 +1039,16 @@ export const AdminDashboardScreen: React.FC = () => {
     const productPayload: any = {
       name: prodName.trim(),
       nameAr: prodName.trim(),
-      nameEn: prodNameEn.trim() || undefined,
       nameDe: prodNameDe.trim() || undefined,
+      nameEn: prodNameEn.trim() || undefined,
+      nameUk: prodNameUk.trim() || undefined,
+      nameFa: prodNameFa.trim() || undefined,
       description: prodDesc.trim() || 'منتج بلدي سوري فاخر من خيرات الطبيعة',
       descriptionAr: prodDesc.trim() || 'منتج بلدي سوري فاخر من خيرات الطبيعة',
       descriptionDe: prodDescDe.trim() || undefined,
       descriptionEn: prodDescEn.trim() || undefined,
+      descriptionUk: prodDescUk.trim() || undefined,
+      descriptionFa: prodDescFa.trim() || undefined,
       price,
       oldPrice,
       originalPrice: oldPrice,
@@ -1064,7 +1097,10 @@ export const AdminDashboardScreen: React.FC = () => {
     setEditingSubcategory(null);
     setSubCategoryId(preselectedCatId || prodCategory || categories[0]?.id || '');
     setSubName('');
+    setSubNameDe('');
     setSubNameEn('');
+    setSubNameUk('');
+    setSubNameFa('');
     setSubImage('');
     setSubSortOrder('1');
     setSubIsActive(true);
@@ -1075,7 +1111,10 @@ export const AdminDashboardScreen: React.FC = () => {
     setEditingSubcategory(sub);
     setSubCategoryId(sub.categoryId);
     setSubName(sub.nameAr || sub.name || '');
+    setSubNameDe(sub.nameDe || '');
     setSubNameEn(sub.nameEn || '');
+    setSubNameUk(sub.nameUk || '');
+    setSubNameFa(sub.nameFa || '');
     setSubImage(sub.image || '');
     setSubSortOrder(sub.sortOrder !== undefined ? sub.sortOrder.toString() : '1');
     setSubIsActive(sub.isActive !== false);
@@ -1097,7 +1136,10 @@ export const AdminDashboardScreen: React.FC = () => {
       categoryId: subCategoryId.trim(),
       name: subName.trim(),
       nameAr: subName.trim(),
+      nameDe: subNameDe.trim() || undefined,
       nameEn: subNameEn.trim() || undefined,
+      nameUk: subNameUk.trim() || undefined,
+      nameFa: subNameFa.trim() || undefined,
       image: subImage.trim() || undefined,
       sortOrder: parseInt(subSortOrder) || 1,
       isActive: subIsActive
@@ -1235,9 +1277,15 @@ export const AdminDashboardScreen: React.FC = () => {
   const handleOpenAddCategory = () => {
     setEditingCategory(null);
     setCatName('');
-    setCatNameEn('');
     setCatNameDe('');
+    setCatNameEn('');
+    setCatNameUk('');
+    setCatNameFa('');
     setCatDescription('');
+    setCatDescriptionDe('');
+    setCatDescriptionEn('');
+    setCatDescriptionUk('');
+    setCatDescriptionFa('');
     setCatImage('https://images.unsplash.com/photo-1552767059-ce182ead6c1b?auto=format&fit=crop&w=600&q=80');
     setCatSortOrder((categories.length + 1).toString());
     setCatIsActive(true);
@@ -1247,9 +1295,15 @@ export const AdminDashboardScreen: React.FC = () => {
   const handleOpenEditCategory = (cat: Category) => {
     setEditingCategory(cat);
     setCatName(cat.nameAr || cat.name || '');
-    setCatNameEn(cat.nameEn || '');
     setCatNameDe(cat.nameDe || '');
+    setCatNameEn(cat.nameEn || '');
+    setCatNameUk(cat.nameUk || '');
+    setCatNameFa(cat.nameFa || '');
     setCatDescription(cat.descriptionAr || cat.description || '');
+    setCatDescriptionDe(cat.descriptionDe || '');
+    setCatDescriptionEn(cat.descriptionEn || '');
+    setCatDescriptionUk(cat.descriptionUk || '');
+    setCatDescriptionFa(cat.descriptionFa || '');
     setCatImage(cat.image);
     setCatSortOrder(cat.sortOrder !== undefined ? cat.sortOrder.toString() : '1');
     setCatIsActive(cat.isActive !== false);
@@ -1266,10 +1320,16 @@ export const AdminDashboardScreen: React.FC = () => {
     const payload = {
       name: catName.trim(),
       nameAr: catName.trim(),
-      nameEn: catNameEn.trim() || undefined,
       nameDe: catNameDe.trim() || undefined,
+      nameEn: catNameEn.trim() || undefined,
+      nameUk: catNameUk.trim() || undefined,
+      nameFa: catNameFa.trim() || undefined,
       description: catDescription.trim(),
       descriptionAr: catDescription.trim(),
+      descriptionDe: catDescriptionDe.trim() || undefined,
+      descriptionEn: catDescriptionEn.trim() || undefined,
+      descriptionUk: catDescriptionUk.trim() || undefined,
+      descriptionFa: catDescriptionFa.trim() || undefined,
       image: catImage.trim(),
       sortOrder: parseInt(catSortOrder) || 1,
       isActive: catIsActive
@@ -2981,24 +3041,26 @@ export const AdminDashboardScreen: React.FC = () => {
               <div className="space-y-3 bg-stone-50/70 p-3.5 rounded-2xl border border-stone-100">
                 <div className="flex flex-wrap items-center justify-between gap-2 pb-1 border-b border-stone-200/60">
                   <div>
-                    <span className="font-extrabold text-stone-900 text-xs">الاسم والترجمة للغات المتجر</span>
-                    <p className="text-[10px] text-stone-500">اكتب الاسم والوصف بالعربية واضغط ترجمة تلقائية لتوليد الألمانية والإنجليزية بضغطة زر</p>
+                    <span className="font-extrabold text-stone-900 text-xs">الاسم والترجمة للغات المتجر (5 لغات)</span>
+                    <p className="text-[10px] text-stone-500">اكتب الاسم والوصف بالعربية واضغط ترجمة تلقائية لتوليد جميع اللغات (ألماني، إنجليزي، أوكراني، فارسي) بضغطة زر</p>
                   </div>
                   <button
                     type="button"
                     onClick={handleAutoTranslateProduct}
                     disabled={isTranslating || !prodName.trim()}
                     className="text-xs font-bold bg-emerald-800 hover:bg-emerald-900 text-white px-3.5 py-1.5 rounded-xl flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-                    title="توليد الأسماء والأوصاف بالألمانية والإنجليزية بطلب واحد"
+                    title="توليد الأسماء والأوصاف لجميع اللغات بطلب واحد"
                   >
                     <Sparkles className={`w-3.5 h-3.5 text-amber-300 ${isTranslating ? 'animate-spin' : ''}`} />
-                    <span>{isTranslating ? 'جاري الترجمة...' : 'ترجمة تلقائية (ألماني + إنجليزي)'}</span>
+                    <span>{isTranslating ? 'جاري الترجمة الذكية...' : 'ترجمة تلقائية ذكية لجميع اللغات (AI)'}</span>
                   </button>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="space-y-1">
-                    <label className="font-bold text-stone-700">اسم المنتج بالعربية (إجباري) *</label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  <div className="space-y-1 sm:col-span-2 lg:col-span-3">
+                    <label className="font-bold text-stone-700 flex items-center gap-1">
+                      <span>🇸🇦 اسم المنتج بالعربية (الأساس - إجباري) *</span>
+                    </label>
                     <input
                       type="text"
                       required
@@ -3010,7 +3072,9 @@ export const AdminDashboardScreen: React.FC = () => {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="font-bold text-stone-700">الاسم بالألمانية (اختياري)</label>
+                    <label className="font-bold text-stone-700 flex items-center gap-1">
+                      <span>🇩🇪 الاسم بالألمانية (Deutsch)</span>
+                    </label>
                     <input
                       type="text"
                       placeholder="z.B. Premium Halloumi Käse"
@@ -3021,13 +3085,42 @@ export const AdminDashboardScreen: React.FC = () => {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="font-bold text-stone-700">الاسم بالإنجليزية (اختياري)</label>
+                    <label className="font-bold text-stone-700 flex items-center gap-1">
+                      <span>🇬🇧 الاسم بالإنجليزية (English)</span>
+                    </label>
                     <input
                       type="text"
                       placeholder="e.g. Premium Halloumi Cheese"
                       value={prodNameEn}
                       onChange={(e) => setProdNameEn(e.target.value)}
                       className="w-full bg-white border border-stone-200 rounded-xl p-2.5 focus:border-emerald-700 outline-hidden font-sans"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="font-bold text-stone-700 flex items-center gap-1">
+                      <span>🇺🇦 الاسم بالأوكرانية (Українська)</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="наприклад: Сир Халумі преміум"
+                      value={prodNameUk}
+                      onChange={(e) => setProdNameUk(e.target.value)}
+                      className="w-full bg-white border border-stone-200 rounded-xl p-2.5 focus:border-emerald-700 outline-hidden font-sans"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="font-bold text-stone-700 flex items-center gap-1">
+                      <span>🇮🇷 الاسم بالفارسية (فارسی)</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="مثال: پنیر هالومی سنتی درجه یک"
+                      value={prodNameFa}
+                      onChange={(e) => setProdNameFa(e.target.value)}
+                      className="w-full bg-white border border-stone-200 rounded-xl p-2.5 focus:border-emerald-700 outline-hidden"
+                      dir="rtl"
                     />
                   </div>
                 </div>
@@ -3188,7 +3281,9 @@ export const AdminDashboardScreen: React.FC = () => {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label className="font-bold text-stone-700">الوصف بالألمانية (Description De - اختياري)</label>
+                    <label className="font-bold text-stone-700 flex items-center gap-1">
+                      <span>🇩🇪 الوصف بالألمانية (Deutsch)</span>
+                    </label>
                     <textarea
                       rows={2}
                       placeholder="z.B. Traditioneller syrischer Halloumi-Käse nach originalem Rezept..."
@@ -3199,13 +3294,42 @@ export const AdminDashboardScreen: React.FC = () => {
                   </div>
 
                   <div className="space-y-1">
-                    <label className="font-bold text-stone-700">الوصف بالإنجليزية (Description En - اختياري)</label>
+                    <label className="font-bold text-stone-700 flex items-center gap-1">
+                      <span>🇬🇧 الوصف بالإنجليزية (English)</span>
+                    </label>
                     <textarea
                       rows={2}
                       placeholder="e.g. Traditional Syrian Halloumi cheese made with fresh milk..."
                       value={prodDescEn}
                       onChange={(e) => setProdDescEn(e.target.value)}
                       className="w-full bg-white border border-stone-200 rounded-xl p-2.5 focus:border-emerald-700 outline-hidden font-sans text-xs leading-relaxed"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="font-bold text-stone-700 flex items-center gap-1">
+                      <span>🇺🇦 الوصف بالأوكرانية (Українська)</span>
+                    </label>
+                    <textarea
+                      rows={2}
+                      placeholder="наприклад: Традиційний сирійський сир Халумі за оригінальним рецептом..."
+                      value={prodDescUk}
+                      onChange={(e) => setProdDescUk(e.target.value)}
+                      className="w-full bg-white border border-stone-200 rounded-xl p-2.5 focus:border-emerald-700 outline-hidden font-sans text-xs leading-relaxed"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="font-bold text-stone-700 flex items-center gap-1">
+                      <span>🇮🇷 الوصف بالفارسية (فارسی)</span>
+                    </label>
+                    <textarea
+                      rows={2}
+                      placeholder="مثال: پنیر هالومی سنتی سوریه با دستور العمل اصیل..."
+                      value={prodDescFa}
+                      onChange={(e) => setProdDescFa(e.target.value)}
+                      className="w-full bg-white border border-stone-200 rounded-xl p-2.5 focus:border-emerald-700 outline-hidden text-xs leading-relaxed"
+                      dir="rtl"
                     />
                   </div>
                 </div>
@@ -3383,7 +3507,9 @@ export const AdminDashboardScreen: React.FC = () => {
 
             <form onSubmit={handleSaveCategory} className="space-y-3 text-xs">
               <div className="space-y-1">
-                <label className="font-bold text-stone-700">اسم القسم بالعربية (إجباري) *</label>
+                <label className="font-bold text-stone-700 flex items-center gap-1">
+                  <span>🇸🇦 اسم القسم بالعربية (الأساس - إجباري) *</span>
+                </label>
                 <input
                   type="text"
                   required
@@ -3396,7 +3522,9 @@ export const AdminDashboardScreen: React.FC = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="font-bold text-stone-700">الاسم بالألمانية (اختياري)</label>
+                  <label className="font-bold text-stone-700 flex items-center gap-1">
+                    <span>🇩🇪 الاسم بالألمانية (Deutsch)</span>
+                  </label>
                   <input
                     type="text"
                     placeholder="z.B. Milch & Käseprodukte"
@@ -3407,13 +3535,42 @@ export const AdminDashboardScreen: React.FC = () => {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="font-bold text-stone-700">الاسم بالإنجليزية (اختياري)</label>
+                  <label className="font-bold text-stone-700 flex items-center gap-1">
+                    <span>🇬🇧 الاسم بالإنجليزية (English)</span>
+                  </label>
                   <input
                     type="text"
                     placeholder="e.g. Dairy & Cheese"
                     value={catNameEn}
                     onChange={(e) => setCatNameEn(e.target.value)}
                     className="w-full bg-stone-50 border border-stone-200 rounded-xl p-2.5 font-sans focus:border-emerald-700 outline-hidden"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-stone-700 flex items-center gap-1">
+                    <span>🇺🇦 الاسم بالأوكرانية (Українська)</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="наприклад: Молочні продукти та сири"
+                    value={catNameUk}
+                    onChange={(e) => setCatNameUk(e.target.value)}
+                    className="w-full bg-stone-50 border border-stone-200 rounded-xl p-2.5 font-sans focus:border-emerald-700 outline-hidden"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-stone-700 flex items-center gap-1">
+                    <span>🇮🇷 الاسم بالفارسية (فارسی)</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="مثال: لبنیات و پنیر سنتی"
+                    value={catNameFa}
+                    onChange={(e) => setCatNameFa(e.target.value)}
+                    className="w-full bg-stone-50 border border-stone-200 rounded-xl p-2.5 focus:border-emerald-700 outline-hidden"
+                    dir="rtl"
                   />
                 </div>
               </div>
@@ -3526,7 +3683,9 @@ export const AdminDashboardScreen: React.FC = () => {
               </div>
 
               <div className="space-y-1">
-                <label className="font-bold text-stone-700">اسم القسم الفرعي بالعربية (إجباري) *</label>
+                <label className="font-bold text-stone-700 flex items-center gap-1">
+                  <span>🇸🇦 اسم القسم الفرعي بالعربية (الأساس - إجباري) *</span>
+                </label>
                 <input
                   type="text"
                   required
@@ -3537,15 +3696,59 @@ export const AdminDashboardScreen: React.FC = () => {
                 />
               </div>
 
-              <div className="space-y-1">
-                <label className="font-bold text-stone-700">الاسم بالإنجليزية (اختياري)</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Halloumi & String Cheese"
-                  value={subNameEn}
-                  onChange={(e) => setSubNameEn(e.target.value)}
-                  className="w-full bg-stone-50 border border-stone-200 rounded-xl p-2.5 font-sans focus:border-emerald-700 outline-hidden"
-                />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-bold text-stone-700 flex items-center gap-1">
+                    <span>🇩🇪 الاسم بالألمانية (Deutsch)</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="z.B. Halloumi & Flechtkäse"
+                    value={subNameDe}
+                    onChange={(e) => setSubNameDe(e.target.value)}
+                    className="w-full bg-stone-50 border border-stone-200 rounded-xl p-2.5 font-sans focus:border-emerald-700 outline-hidden"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-stone-700 flex items-center gap-1">
+                    <span>🇬🇧 الاسم بالإنجليزية (English)</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="e.g. Halloumi & String Cheese"
+                    value={subNameEn}
+                    onChange={(e) => setSubNameEn(e.target.value)}
+                    className="w-full bg-stone-50 border border-stone-200 rounded-xl p-2.5 font-sans focus:border-emerald-700 outline-hidden"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-stone-700 flex items-center gap-1">
+                    <span>🇺🇦 الاسم بالأوكرانية (Українська)</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="наприклад: Сир Халумі та косичка"
+                    value={subNameUk}
+                    onChange={(e) => setSubNameUk(e.target.value)}
+                    className="w-full bg-stone-50 border border-stone-200 rounded-xl p-2.5 font-sans focus:border-emerald-700 outline-hidden"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-bold text-stone-700 flex items-center gap-1">
+                    <span>🇮🇷 الاسم بالفارسية (فارسی)</span>
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="مثال: پنیر هالومی و رشته‌ای"
+                    value={subNameFa}
+                    onChange={(e) => setSubNameFa(e.target.value)}
+                    className="w-full bg-stone-50 border border-stone-200 rounded-xl p-2.5 focus:border-emerald-700 outline-hidden"
+                    dir="rtl"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

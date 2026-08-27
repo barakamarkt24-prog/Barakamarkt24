@@ -10,33 +10,33 @@ import { useApp } from '../../context/AppContext';
 import { BottomNavTab } from '../../types';
 
 export const BottomNav: React.FC = () => {
-  const { activeTab, navigateTo, cartCount } = useApp();
+  const { activeTab, navigateTo, cartCount, t } = useApp();
 
   const navItems: { tab: BottomNavTab; label: string; icon: React.ElementType; badge?: number }[] = [
     {
       tab: 'home',
-      label: 'الرئيسية',
+      label: t('nav.home'),
       icon: Home
     },
     {
       tab: 'categories',
-      label: 'الأقسام',
+      label: t('nav.categories'),
       icon: LayoutGrid
     },
     {
       tab: 'cart',
-      label: 'السلة',
+      label: t('nav.cart'),
       icon: ShoppingBag,
       badge: cartCount
     },
     {
       tab: 'orders',
-      label: 'طلباتي',
+      label: t('nav.orders'),
       icon: Package
     },
     {
       tab: 'profile',
-      label: 'حسابي',
+      label: t('nav.profile'),
       icon: User
     }
   ];

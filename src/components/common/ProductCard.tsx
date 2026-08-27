@@ -17,7 +17,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onSelect }) =
     updateQuantity, 
     toggleWishlist, 
     isInWishlist, 
-    currencySymbol 
+    currencySymbol,
+    dir,
+    t,
+    getProductName
   } = useApp();
 
   const isFavorited = isInWishlist(product.id);
@@ -28,6 +31,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onSelect }) =
     ? product.stock 
     : (product.stockCount !== undefined && product.stockCount !== null ? product.stockCount : 100);
   const isAvailable = product.isAvailable !== false && product.inStock !== false && rawStock > 0;
+
+  const localizedName = getProductName(product);
 
   const handleClick = () => {
     if (onSelect) {
@@ -66,20 +71,20 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onSelect }) =
     <div 
       onClick={handleClick}
       className="bg-white rounded-2xl p-2.5 border border-stone-200/80 hover:border-[#005A36]/50 shadow-2xs hover:shadow-xs transition-all flex flex-col justify-between cursor-pointer group relative"
-      dir="rtl"
+      dir={dir}
     >
       {/* Top badges & Favorite button */}
       <div className="relative w-full aspect-square bg-stone-50 rounded-xl overflow-hidden mb-2">
         <OptimizedImage
           src={product.image || (product.images && product.images[0])}
-          alt={product.nameAr || product.name}
+          alt={localizedName}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
         />
 
         {/* Favorite Button */}
         <button
           onClick={handleToggleFav}
-          aria-label="إضافة للمفضلة"
+          aria-label={t('nav.wishlist')}
           className="absolute top-1.5 left-1.5 w-7 h-7 rounded-full bg-white/90 backdrop-blur-xs flex items-center justify-center text-stone-600 hover:text-rose-500 shadow-2xs transition-colors cursor-pointer z-10"
         >
           <Heart className={`w-3.5 h-3.5 ${isFavorited ? 'fill-rose-500 text-rose-500' : ''}`} />
@@ -94,7 +99,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onSelect }) =
           )}
           {product.isFeatured && (
             <span className="bg-[#005A36] text-[#86EFAC] text-[9px] font-bold px-1.5 py-0.5 rounded-md shadow-2xs">
-              مميز
+              {t('home.bestsellers')}
             </span>
           )}
         </div>
@@ -102,7 +107,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onSelect }) =
         {!isAvailable && (
           <div className="absolute inset-0 bg-white/80 backdrop-blur-[1px] flex items-center justify-center">
             <span className="bg-stone-900 text-white text-[10px] font-bold px-2.5 py-1 rounded-lg">
-              نفد من المخزن
+              {t('product.outOfStock')}
             </span>
           </div>
         )}
@@ -112,12 +117,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onSelect }) =
       <div className="space-y-1.5 flex-1 flex flex-col justify-between">
         <div>
           <span className="text-[10px] text-stone-400 font-medium block truncate">
-            {product.origin || 'بركة ماركت'} {product.unit ? `• ${product.unit}` : ''}
+            {product.origin || 'Barakamarkt24'} {product.unit ? `• ${product.unit}` : ''}
           </span>
           <h4 className="font-bold text-xs text-stone-900 line-clamp-2 leading-snug">
-            {product.nameAr || product.name}
+            {localizedName}
           </h4>
-          {(product.nameDe || product.nameEn) && (
+          {(product.nameDe || product.nameEn) && product.nameAr !== localizedName && (
             <span className="text-[10px] text-stone-400 font-sans block truncate pt-0.5">
               {product.nameDe || product.nameEn}
             </span>
@@ -147,7 +152,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onSelect }) =
               >
                 <button
                   onClick={handleDecrement}
-                  aria-label="تقليل الكمية"
+                  aria-label="-"
                   className="w-6 h-6 rounded-lg hover:bg-[#00472a] flex items-center justify-center cursor-pointer transition-colors"
                 >
                   <Minus className="w-3 h-3" />
@@ -157,7 +162,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onSelect }) =
                 </span>
                 <button
                   onClick={handleIncrement}
-                  aria-label="زيادة الكمية"
+                  aria-label="+"
                   className="w-6 h-6 rounded-lg hover:bg-[#00472a] flex items-center justify-center cursor-pointer transition-colors"
                 >
                   <Plus className="w-3 h-3" />
@@ -166,7 +171,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onSelect }) =
             ) : (
               <button
                 onClick={handleAddToCart}
-                aria-label="إضافة للسلة"
+                aria-label={t('product.addToCart')}
                 className="w-8 h-8 rounded-xl bg-emerald-50 hover:bg-[#005A36] hover:text-white text-[#005A36] flex items-center justify-center cursor-pointer transition-all shadow-2xs active:scale-95"
               >
                 <Plus className="w-4 h-4" />

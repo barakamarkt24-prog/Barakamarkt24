@@ -39,6 +39,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = (props) => 
     activeDetailProduct, 
     closeProductDetails, 
     addToCart, 
+    updateQuantity,
+    removeFromCart,
+    cart,
     toggleWishlist, 
     isInWishlist, 
     currencySymbol, 
@@ -46,17 +49,30 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = (props) => 
     categories, 
     subcategories,
     openProductDetails,
-    showToast 
+    navigateTo,
+    showToast,
+    dir,
+    t,
+    getProductName,
+    getProductDescription
   } = useApp();
 
   const product = props.product !== undefined ? props.product : activeDetailProduct;
   const onClose = props.onClose || closeProductDetails;
 
+  // Real-time synchronization with cart state
+  const cartItem = useMemo(() => {
+    if (!product) return null;
+    return cart.find(item => item.product.id === product.id || (item.product as any).productId === product.id) || null;
+  }, [cart, product?.id]);
+
+  const currentCartQuantity = cartItem ? cartItem.quantity : 0;
+
   const [quantity, setQuantity] = useState<number>(1);
   const [selectedImageIndex, setSelectedImageIndex] = useState<number>(0);
   const [activeTab, setActiveTab] = useState<'info' | 'storage' | 'reviews'>('info');
   const [copiedLink, setCopiedLink] = useState<boolean>(false);
-  const [addedAnimation, setAddedAnimation] = useState<boolean>(false);
+  const [showAddedSuccess, setShowAddedSuccess] = useState<boolean>(false);
 
   // Reviews state for customer ratings
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -65,14 +81,15 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = (props) => 
   const [newReviewRating, setNewReviewRating] = useState(5);
   const [reviewSubmitted, setReviewSubmitted] = useState(false);
 
-  // Reset local state when target product changes
+  // Reset local state and load actual cart quantity when target product changes
   useEffect(() => {
     if (product) {
-      setQuantity(1);
+      const existingInCart = cart.find(item => item.product.id === product.id || (item.product as any).productId === product.id);
+      setQuantity(existingInCart ? existingInCart.quantity : 1);
       setSelectedImageIndex(0);
       setActiveTab('info');
       setCopiedLink(false);
-      setAddedAnimation(false);
+      setShowAddedSuccess(false);
       setReviews(product.reviews || [
         {
           id: 'rev-1',
@@ -93,6 +110,13 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = (props) => 
       ]);
     }
   }, [product?.id]);
+
+  // Keep local quantity aligned if modified from cart elsewhere
+  useEffect(() => {
+    if (currentCartQuantity > 0) {
+      setQuantity(currentCartQuantity);
+    }
+  }, [currentCartQuantity]);
 
   // Lock background body scroll when bottom sheet is active
   useEffect(() => {
@@ -145,15 +169,33 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = (props) => 
     .slice(0, 4);
 
   const handleQuantityMinus = () => {
-    setQuantity(prev => Math.max(1, prev - 1));
+    if (currentCartQuantity > 0) {
+      if (currentCartQuantity === 1) {
+        removeFromCart(product.id);
+        setQuantity(1);
+        setShowAddedSuccess(false);
+      } else {
+        updateQuantity(product.id, currentCartQuantity - 1);
+        setQuantity(currentCartQuantity - 1);
+      }
+    } else {
+      setQuantity(prev => Math.max(1, prev - 1));
+    }
   };
 
   const handleQuantityPlus = () => {
-    if (quantity >= rawStock) {
+    const currentVal = currentCartQuantity > 0 ? currentCartQuantity : quantity;
+    if (currentVal >= rawStock) {
       showToast(`الحد الأقصى للمخزون المتوفر هو ${rawStock} ${product.unit || 'قطع'}`);
       return;
     }
-    setQuantity(prev => prev + 1);
+
+    if (currentCartQuantity > 0) {
+      updateQuantity(product.id, currentCartQuantity + 1);
+      setQuantity(currentCartQuantity + 1);
+    } else {
+      setQuantity(prev => prev + 1);
+    }
   };
 
   const handleAddToCart = () => {
@@ -163,8 +205,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = (props) => 
     } else {
       addToCart(product, quantity);
     }
-    setAddedAnimation(true);
-    setTimeout(() => setAddedAnimation(false), 1200);
+    setShowAddedSuccess(true);
   };
 
   const handleToggleFavorite = () => {
@@ -205,11 +246,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = (props) => 
     setTimeout(() => setReviewSubmitted(false), 3000);
   };
 
+  const localizedName = product ? getProductName(product) : '';
+  const localizedDesc = product ? getProductDescription(product) : '';
+
   return (
     <div 
       className="fixed inset-0 z-50 overflow-hidden bg-black/60 backdrop-blur-xs flex items-end sm:items-center justify-center p-0 sm:p-4 transition-opacity duration-300"
       onClick={onClose}
-      dir="rtl"
+      dir={dir}
     >
       {/* Bottom Sheet / Modal Container */}
       <div 
@@ -233,7 +277,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = (props) => 
               <X className="w-4 h-4" />
             </button>
             <span className="text-xs font-bold text-stone-500">
-              {category?.nameAr || 'تفاصيل الصنف'}
+              {category ? (category.nameAr || category.name) : t('product.details')}
             </span>
           </div>
 
@@ -241,8 +285,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = (props) => 
             <button
               onClick={handleShare}
               className="w-8 h-8 rounded-full bg-stone-100 hover:bg-stone-200 text-stone-700 flex items-center justify-center transition-colors cursor-pointer active:scale-95"
-              aria-label="مشاركة"
-              title="مشاركة المنتج"
+              aria-label={t('product.share')}
+              title={t('product.share')}
             >
               {copiedLink ? <Check className="w-4 h-4 text-emerald-700" /> : <Share2 className="w-4 h-4 text-stone-600" />}
             </button>
@@ -250,8 +294,8 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = (props) => 
             <button
               onClick={handleToggleFavorite}
               className="w-8 h-8 rounded-full bg-stone-100 hover:bg-rose-50 text-stone-700 hover:text-rose-500 flex items-center justify-center transition-colors cursor-pointer active:scale-95"
-              aria-label="المفضلة"
-              title={isFavorite ? 'إزالة من المفضلة' : 'إضافة للمفضلة'}
+              aria-label={t('nav.wishlist')}
+              title={isFavorite ? t('product.removeFromWishlist') : t('product.addToWishlist')}
             >
               <Heart className={`w-4 h-4 transition-transform ${isFavorite ? 'text-rose-500 fill-rose-500' : 'text-stone-600'}`} />
             </button>
@@ -266,7 +310,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = (props) => 
             <div className="relative aspect-4/3 sm:aspect-16/10 w-full rounded-2xl overflow-hidden bg-stone-100 border border-stone-200/80 shadow-2xs">
               <OptimizedImage
                 src={currentImage}
-                alt={product.nameAr || product.name}
+                alt={localizedName}
                 className="w-full h-full object-cover transition-all duration-300"
                 targetWidth={600}
                 quality={85}
@@ -277,21 +321,21 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = (props) => 
                 {hasDiscount && discountPercent && (
                   <span className="bg-rose-600 text-white text-[11px] font-black px-2.5 py-0.5 rounded-full shadow-md flex items-center gap-1">
                     <Tag className="w-3 h-3" />
-                    <span>خصم {discountPercent}%</span>
+                    <span>%{discountPercent}-</span>
                   </span>
                 )}
 
                 {product.isColdShipping && (
                   <span className="bg-cyan-800/95 backdrop-blur-xs text-white text-[10px] font-bold px-2.5 py-0.5 rounded-full shadow-md flex items-center gap-1">
                     <Snowflake className="w-3 h-3 text-cyan-200" />
-                    <span>شحن مبرد ❄️</span>
+                    <span>{t('product.chilledDelivery')} ❄️</span>
                   </span>
                 )}
 
                 {product.isFeatured && (
                   <span className="bg-emerald-800 text-amber-300 text-[10px] font-bold px-2 py-0.5 rounded-full shadow-md flex items-center gap-1">
                     <Sparkles className="w-3 h-3" />
-                    <span>مميز</span>
+                    <span>{t('product.featured')}</span>
                   </span>
                 )}
               </div>
@@ -301,7 +345,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = (props) => 
                 <div className="absolute bottom-2.5 right-2.5 z-10">
                   <span className="bg-stone-900/85 backdrop-blur-xs text-white text-[10px] font-bold px-2.5 py-1 rounded-xl shadow-xs flex items-center gap-1">
                     <MapPin className="w-3 h-3 text-amber-400" />
-                    <span>منشأ: {product.origin}</span>
+                    <span>{t('product.origin')}: {product.origin}</span>
                   </span>
                 </div>
               )}
@@ -310,7 +354,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = (props) => 
               {!isAvailable && (
                 <div className="absolute inset-0 bg-stone-900/70 backdrop-blur-[2px] flex items-center justify-center z-20">
                   <span className="bg-rose-600 text-white text-xs font-bold px-3 py-1.5 rounded-xl shadow-lg">
-                    نفد من المخزن مؤقتاً
+                    {t('product.outOfStock')}
                   </span>
                 </div>
               )}
@@ -345,7 +389,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = (props) => 
           <div className="bg-white p-3.5 sm:p-4 rounded-2xl border border-stone-200/80 space-y-2.5 shadow-2xs">
             <div className="flex items-center justify-between text-xs">
               <span className="bg-emerald-50 text-emerald-800 font-bold px-2.5 py-0.5 rounded-lg border border-emerald-100">
-                {product.brand || 'بركة ماركت'} {product.unit ? `• ${product.unit}` : ''}
+                {product.brand || 'Barakamarkt24'} {product.unit ? `• ${product.unit}` : ''}
               </span>
               
               <div className="flex items-center gap-1 text-amber-500 font-bold">
@@ -357,9 +401,9 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = (props) => 
 
             <div>
               <h2 className="text-base sm:text-lg font-black text-stone-900 leading-snug">
-                {product.nameAr || product.name}
+                {localizedName}
               </h2>
-              {(product.nameDe || product.nameEn) && (
+              {(product.nameDe || product.nameEn) && product.nameAr !== localizedName && (
                 <p className="text-xs text-stone-500 font-sans mt-0.5">
                   {product.nameDe || product.nameEn}
                 </p>
@@ -380,7 +424,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = (props) => 
                   )}
                 </div>
                 <span className="text-[10px] text-stone-500 block mt-0.5">
-                  الأسعار شاملة ضريبة القيمة المضافة • طازج ومضمون
+                  {t('product.vatIncluded')}
                 </span>
               </div>
 
@@ -390,17 +434,17 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = (props) => 
                   isLowStock ? (
                     <span className="bg-amber-100 text-amber-900 border border-amber-200 text-[10px] font-bold px-2.5 py-1 rounded-lg flex items-center gap-1">
                       <AlertTriangle className="w-3 h-3 text-amber-600" />
-                      <span>متبقي {rawStock} فقط!</span>
+                      <span>{t('product.onlyLeft', { count: rawStock })}</span>
                     </span>
                   ) : (
                     <span className="bg-emerald-100 text-emerald-900 border border-emerald-200 text-[10px] font-bold px-2.5 py-1 rounded-lg flex items-center gap-1">
                       <CheckCircle2 className="w-3 h-3 text-emerald-700" />
-                      <span>متوفر في المستودع</span>
+                      <span>{t('product.inStock')}</span>
                     </span>
                   )
                 ) : (
                   <span className="bg-stone-100 text-stone-600 text-[10px] font-bold px-2.5 py-1 rounded-lg">
-                    غير متوفر حالياً
+                    {t('product.outOfStock')}
                   </span>
                 )}
               </div>
@@ -411,18 +455,18 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = (props) => 
           <div className="grid grid-cols-3 gap-2 text-center text-[10px]">
             <div className="bg-white p-2.5 rounded-xl border border-stone-200/70 space-y-1">
               <Truck className="w-4 h-4 text-emerald-700 mx-auto" />
-              <span className="font-bold text-stone-800 block">شحن سريع</span>
-              <span className="text-stone-500">حتى باب منزلك</span>
+              <span className="font-bold text-stone-800 block">{t('product.fastDelivery')}</span>
+              <span className="text-stone-500">{t('product.fastDeliverySub')}</span>
             </div>
             <div className="bg-white p-2.5 rounded-xl border border-stone-200/70 space-y-1">
               <ShieldCheck className="w-4 h-4 text-emerald-700 mx-auto" />
-              <span className="font-bold text-stone-800 block">طعم بلدي أصيل</span>
-              <span className="text-stone-500">حلال 100% ومفحوص</span>
+              <span className="font-bold text-stone-800 block">{t('product.authenticTaste')}</span>
+              <span className="text-stone-500">{t('product.halalGuaranteed')}</span>
             </div>
             <div className="bg-white p-2.5 rounded-xl border border-stone-200/70 space-y-1">
               <Snowflake className="w-4 h-4 text-cyan-700 mx-auto" />
-              <span className="font-bold text-stone-800 block">حفظ مبرد</span>
-              <span className="text-stone-500">أكياس تبريد معزولة</span>
+              <span className="font-bold text-stone-800 block">{t('product.chilledStorage')}</span>
+              <span className="text-stone-500">{t('product.insulatedBags')}</span>
             </div>
           </div>
 
@@ -437,7 +481,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = (props) => 
                     : 'border-transparent text-stone-500 hover:text-stone-800'
                 }`}
               >
-                الوصف والمكونات
+                {t('product.description')}
               </button>
               <button
                 onClick={() => setActiveTab('storage')}
@@ -447,7 +491,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = (props) => 
                     : 'border-transparent text-stone-500 hover:text-stone-800'
                 }`}
               >
-                طريقة الحفظ
+                {t('product.storageMethod')}
               </button>
               <button
                 onClick={() => setActiveTab('reviews')}
@@ -457,7 +501,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = (props) => 
                     : 'border-transparent text-stone-500 hover:text-stone-800'
                 }`}
               >
-                التقييمات ({reviews.length})
+                {t('product.reviews')} ({reviews.length})
               </button>
             </div>
 
@@ -465,10 +509,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = (props) => 
               {activeTab === 'info' && (
                 <div className="space-y-2.5">
                   <p className="text-stone-800 whitespace-pre-line">
-                    {product.descriptionAr || product.description || 'صنف بلدي سوري فاخر مستورد ومحفوظ بعناية فائقة لضمان الطعم والجودة الأصلية.'}
+                    {localizedDesc || t('product.defaultDesc')}
                   </p>
 
-                  {(product.descriptionDe || product.descriptionEn) && (
+                  {(product.descriptionDe || product.descriptionEn) && product.descriptionAr !== localizedDesc && (
                     <p className="text-stone-500 font-sans text-[11px] pt-1 border-t border-stone-100">
                       {product.descriptionDe || product.descriptionEn}
                     </p>
@@ -476,7 +520,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = (props) => 
 
                   {product.ingredientsAr && (
                     <div className="bg-emerald-50/70 p-2.5 rounded-xl border border-emerald-100/80">
-                      <span className="font-bold text-emerald-900 block mb-0.5">المكونات:</span>
+                      <span className="font-bold text-emerald-900 block mb-0.5">{t('product.ingredients')}:</span>
                       <p className="text-emerald-950">{product.ingredientsAr}</p>
                     </div>
                   )}
@@ -484,19 +528,19 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = (props) => 
                   {product.nutrition && (
                     <div className="grid grid-cols-4 gap-1.5 pt-1 text-center font-sans">
                       <div className="bg-stone-50 p-1.5 rounded-lg border border-stone-200/60">
-                        <span className="text-[9px] text-stone-500 block">سعرات</span>
+                        <span className="text-[9px] text-stone-500 block">{t('product.calories')}</span>
                         <span className="font-bold text-stone-800 text-xs">{product.nutrition.calories} kcal</span>
                       </div>
                       <div className="bg-stone-50 p-1.5 rounded-lg border border-stone-200/60">
-                        <span className="text-[9px] text-stone-500 block">بروتين</span>
+                        <span className="text-[9px] text-stone-500 block">{t('product.protein')}</span>
                         <span className="font-bold text-stone-800 text-xs">{product.nutrition.protein}</span>
                       </div>
                       <div className="bg-stone-50 p-1.5 rounded-lg border border-stone-200/60">
-                        <span className="text-[9px] text-stone-500 block">دهون</span>
+                        <span className="text-[9px] text-stone-500 block">{t('product.fat')}</span>
                         <span className="font-bold text-stone-800 text-xs">{product.nutrition.fat}</span>
                       </div>
                       <div className="bg-stone-50 p-1.5 rounded-lg border border-stone-200/60">
-                        <span className="text-[9px] text-stone-500 block">كارب</span>
+                        <span className="text-[9px] text-stone-500 block">{t('product.carbs')}</span>
                         <span className="font-bold text-stone-800 text-xs">{product.nutrition.carbs}</span>
                       </div>
                     </div>
@@ -509,10 +553,10 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = (props) => 
                   <div className="bg-cyan-50 p-3 rounded-xl border border-cyan-200/70 text-cyan-950 space-y-1">
                     <span className="font-bold text-xs flex items-center gap-1">
                       <Snowflake className="w-3.5 h-3.5 text-cyan-700" />
-                      <span>تعليمات الحفظ والتخزين:</span>
+                      <span>{t('product.storageMethod')}:</span>
                     </span>
                     <p className="text-[11px] leading-relaxed">
-                      {product.storageAr || 'يحفظ في مكان بارد وجاف بعيداً عن أشعة الشمس المباشرة. الأصناف المبردة توضع مباشرة في الثلاجة بدرجة حرارة بين 2-6 مئوية.'}
+                      {product.storageAr || t('product.defaultStorage')}
                     </p>
                   </div>
                 </div>
@@ -523,7 +567,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = (props) => 
                   {/* Add Review */}
                   <form onSubmit={handleAddReview} className="bg-stone-50 p-3 rounded-xl border border-stone-200/80 space-y-2">
                     <div className="flex items-center justify-between">
-                      <span className="font-bold text-xs text-stone-900">أضف تقييمك للصنف:</span>
+                      <span className="font-bold text-xs text-stone-900">{t('product.addReview')}:</span>
                       <div className="flex gap-1">
                         {[1, 2, 3, 4, 5].map((s) => (
                           <button
@@ -541,7 +585,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = (props) => 
                     <div className="grid grid-cols-2 gap-2">
                       <input
                         type="text"
-                        placeholder="الاسم والمدينة (مثال: أبو عمر - Greifswald)"
+                        placeholder={t('product.nameAndCity')}
                         value={newReviewAuthor}
                         onChange={(e) => setNewReviewAuthor(e.target.value)}
                         className="bg-white px-2.5 py-1.5 rounded-lg border border-stone-200 text-xs w-full text-stone-800"
@@ -551,12 +595,12 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = (props) => 
                         type="submit"
                         className="bg-emerald-800 hover:bg-emerald-900 text-white text-xs font-bold py-1.5 rounded-lg transition-colors cursor-pointer"
                       >
-                        إرسال التقييم
+                        {t('product.submitReview')}
                       </button>
                     </div>
 
                     <textarea
-                      placeholder="رأيك في المذاق، الجودة، والتغليف..."
+                      placeholder={t('product.reviewPlaceholder')}
                       value={newReviewComment}
                       onChange={(e) => setNewReviewComment(e.target.value)}
                       className="bg-white px-2.5 py-1.5 rounded-lg border border-stone-200 text-xs w-full h-14 resize-none text-stone-800"
@@ -564,7 +608,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = (props) => 
                     />
 
                     {reviewSubmitted && (
-                      <p className="text-emerald-700 text-[11px] font-bold">شكراً لتقييمك! تم نشره بنجاح.</p>
+                      <p className="text-emerald-700 text-[11px] font-bold">{t('product.reviewThanks')}</p>
                     )}
                   </form>
 
@@ -593,7 +637,7 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = (props) => 
           {relatedProducts.length > 0 && (
             <div className="space-y-2 pt-1">
               <div className="flex items-center justify-between">
-                <h3 className="font-extrabold text-xs text-stone-900">أصناف مشابهة قد تعجبك:</h3>
+                <h3 className="font-extrabold text-xs text-stone-900">{t('product.similarProducts')}</h3>
               </div>
               <div className="grid grid-cols-2 gap-2">
                 {relatedProducts.map((rel) => (
@@ -605,14 +649,14 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = (props) => 
                     <div className="w-12 h-12 rounded-lg overflow-hidden bg-stone-50 shrink-0">
                       <OptimizedImage
                         src={rel.image || (rel.images && rel.images[0])}
-                        alt={rel.nameAr}
+                        alt={getProductName(rel)}
                         className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                         targetWidth={80}
                       />
                     </div>
                     <div className="flex-1 min-w-0">
                       <h4 className="font-bold text-[11px] text-stone-900 truncate">
-                        {rel.nameAr || rel.name}
+                        {getProductName(rel)}
                       </h4>
                       <span className="font-black text-xs text-emerald-800 font-sans block mt-0.5">
                         {currencySymbol}{rel.price.toFixed(2)}
@@ -627,53 +671,127 @@ export const ProductDetailModal: React.FC<ProductDetailModalProps> = (props) => 
         </div>
 
         {/* Sticky Bottom Action Footer */}
-        <div className="p-3 sm:p-4 bg-white border-t border-stone-200/80 flex items-center gap-3 shrink-0">
-          {/* Quantity Stepper */}
-          <div className="flex items-center border border-stone-200 rounded-2xl overflow-hidden bg-stone-50 shrink-0">
-            <button
-              onClick={handleQuantityMinus}
-              disabled={quantity <= 1 || !isAvailable}
-              className="w-9 h-11 flex items-center justify-center text-stone-700 hover:bg-stone-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-              aria-label="تقليل الكمية"
-            >
-              <Minus className="w-4 h-4" />
-            </button>
-            <span className="w-8 text-center font-black text-stone-900 text-sm font-sans">
-              {quantity}
-            </span>
-            <button
-              onClick={handleQuantityPlus}
-              disabled={!isAvailable || quantity >= rawStock}
-              className="w-9 h-11 flex items-center justify-center text-stone-700 hover:bg-stone-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
-              aria-label="زيادة الكمية"
-            >
-              <Plus className="w-4 h-4" />
-            </button>
-          </div>
-
-          {/* Add to Cart Button */}
-          {isAvailable ? (
-            <button
-              onClick={handleAddToCart}
-              className={`flex-1 bg-[#005A36] hover:bg-[#00472a] text-white font-black py-3 px-4 rounded-2xl shadow-md active:scale-98 transition-all flex items-center justify-center gap-2 text-xs sm:text-sm cursor-pointer ${
-                addedAnimation ? 'bg-emerald-600 ring-2 ring-emerald-400' : ''
-              }`}
-            >
-              <ShoppingBag className="w-4 h-4" />
-              <span>
-                {addedAnimation 
-                  ? 'تمت الإضافة بنجاح ✓' 
-                  : `إضافة للسلة • ${currencySymbol}${(product.price * quantity).toFixed(2)}`
-                }
-              </span>
-            </button>
-          ) : (
+        <div className="p-3.5 sm:p-4 bg-white border-t border-stone-200/80 shrink-0 shadow-lg" dir={dir}>
+          {!isAvailable ? (
             <button
               disabled
-              className="flex-1 bg-stone-200 text-stone-400 font-bold py-3 px-4 rounded-2xl flex items-center justify-center gap-2 text-xs cursor-not-allowed"
+              className="w-full bg-stone-100 text-stone-400 font-bold py-3.5 px-4 rounded-2xl flex items-center justify-center gap-2 text-xs sm:text-sm cursor-not-allowed border border-stone-200"
             >
-              <span>غير متوفر حالياً بالمخزن</span>
+              <span>{t('product.outOfStock')}</span>
             </button>
+          ) : showAddedSuccess ? (
+            /* Success confirmation banner with 2 buttons */
+            <div className="w-full flex flex-col gap-2.5 animate-fadeIn">
+              {/* Success Badge */}
+              <div className="flex items-center justify-center gap-1.5 py-1.5 px-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs sm:text-sm font-black">
+                <Check className="w-4 h-4 text-emerald-600 stroke-[3]" />
+                <span>{t('product.addedSuccessTitle') || '✓ تمت إضافة المنتج بنجاح'}</span>
+              </div>
+
+              {/* Action Buttons: Continue Shopping vs Go to Cart */}
+              <div className="flex items-center gap-2.5">
+                <button
+                  onClick={() => {
+                    setShowAddedSuccess(false);
+                    onClose();
+                  }}
+                  className="flex-1 py-3 px-3 rounded-2xl font-bold text-xs sm:text-sm bg-stone-100 hover:bg-stone-200 text-stone-700 active:scale-98 transition-all flex items-center justify-center border border-stone-200 cursor-pointer"
+                >
+                  <span>{t('product.continueShopping') || 'متابعة التسوق'}</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setShowAddedSuccess(false);
+                    onClose();
+                    navigateTo('cart');
+                  }}
+                  className="flex-1 py-3 px-3 rounded-2xl font-black text-xs sm:text-sm bg-[#005A36] hover:bg-[#00472a] text-white active:scale-98 transition-all flex items-center justify-center gap-1.5 shadow-md cursor-pointer"
+                >
+                  <ShoppingBag className="w-4 h-4 text-amber-300" />
+                  <span>{t('product.goToCart') || 'الذهاب إلى السلة'}</span>
+                </button>
+              </div>
+            </div>
+          ) : currentCartQuantity > 0 ? (
+            /* Product is in Cart: Show Full Stepper with Live Subtotal & Direct Modifiers */
+            <div className="flex items-center gap-3">
+              <div className="flex-1 flex items-center justify-between bg-stone-50 border-2 border-[#005A36]/30 rounded-2xl p-1.5 shadow-inner">
+                <button
+                  onClick={handleQuantityMinus}
+                  className="w-11 h-11 rounded-xl bg-white text-stone-800 hover:bg-stone-100 active:scale-95 flex items-center justify-center shadow-xs transition-all cursor-pointer"
+                  aria-label="-"
+                  title={currentCartQuantity === 1 ? (t('cart.remove') || 'إزالة') : '-'}
+                >
+                  <Minus className="w-5 h-5 text-stone-700" />
+                </button>
+
+                <div className="flex flex-col items-center justify-center px-3">
+                  <div className="flex items-center gap-1.5">
+                    <span className="font-black text-lg text-stone-900 font-sans">{currentCartQuantity}</span>
+                    <span className="text-[11px] font-bold text-stone-500">{product.unit || 'قطع'}</span>
+                  </div>
+                  <span className="text-[10px] font-bold text-emerald-800 flex items-center gap-1">
+                    <Check className="w-3 h-3 text-emerald-600 stroke-[3]" />
+                    {t('product.addedToCart')}
+                  </span>
+                </div>
+
+                <button
+                  onClick={handleQuantityPlus}
+                  disabled={currentCartQuantity >= rawStock}
+                  className="w-11 h-11 rounded-xl bg-[#005A36] text-white hover:bg-[#00472a] active:scale-95 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center shadow-xs transition-all cursor-pointer"
+                  aria-label="+"
+                >
+                  <Plus className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Total Price for items currently in cart */}
+              <div className="flex flex-col items-end justify-center min-w-20 sm:min-w-24 px-1 text-end">
+                <span className="text-[10px] text-stone-400 font-medium">{t('cart.subtotal') || 'الإجمالي'}:</span>
+                <span className="text-base sm:text-lg font-black text-[#005A36] font-sans">
+                  {currencySymbol || '€'}{(product.price * currentCartQuantity).toFixed(2)}
+                </span>
+              </div>
+            </div>
+          ) : (
+            /* Product is NOT in Cart: Stepper + Big Add to Cart Button */
+            <div className="flex items-center gap-3">
+              {/* Quantity Pre-selector Stepper */}
+              <div className="flex items-center border border-stone-200 rounded-2xl overflow-hidden bg-stone-50 shrink-0">
+                <button
+                  onClick={handleQuantityMinus}
+                  disabled={quantity <= 1}
+                  className="w-10 h-12 flex items-center justify-center text-stone-700 hover:bg-stone-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                  aria-label="-"
+                >
+                  <Minus className="w-4 h-4" />
+                </button>
+                <span className="w-9 text-center font-black text-stone-900 text-sm font-sans">
+                  {quantity}
+                </span>
+                <button
+                  onClick={handleQuantityPlus}
+                  disabled={quantity >= rawStock}
+                  className="w-10 h-12 flex items-center justify-center text-stone-700 hover:bg-stone-200 disabled:opacity-30 disabled:cursor-not-allowed transition-colors cursor-pointer"
+                  aria-label="+"
+                >
+                  <Plus className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Add to Cart Button */}
+              <button
+                onClick={handleAddToCart}
+                className="flex-1 bg-[#005A36] hover:bg-[#00472a] active:scale-98 text-white font-black h-12 px-4 rounded-2xl shadow-md transition-all flex items-center justify-center gap-2 text-xs sm:text-sm cursor-pointer"
+              >
+                <ShoppingBag className="w-4 h-4" />
+                <span>
+                  {`${t('product.addToCart')} • ${currencySymbol || '€'}${((product.price) * quantity).toFixed(2)}`}
+                </span>
+              </button>
+            </div>
           )}
         </div>
 

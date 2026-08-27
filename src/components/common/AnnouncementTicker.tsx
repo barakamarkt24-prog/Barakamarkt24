@@ -12,6 +12,7 @@ import {
 import { useApp } from '../../context/AppContext';
 import { AnnouncementItem } from '../../types';
 import { DEFAULT_ANNOUNCEMENTS } from '../../services/adminService';
+import { getLocalizedAnnouncementText } from '../../locales';
 
 interface AnnouncementTickerProps {
   onPressAction?: () => void;
@@ -40,14 +41,18 @@ const getAnnouncementIcon = (iconName?: string) => {
 };
 
 export const AnnouncementTicker: React.FC<AnnouncementTickerProps> = ({ onPressAction }) => {
-  const { storeSettings, navigateTo } = useApp();
+  const { storeSettings, navigateTo, language, dir, t } = useApp();
 
-  // Extract and prepare announcements: filter active and sort by order
+  // Extract and prepare announcements: filter active, non-empty localized text, and sort by order
   const activeAnnouncements = useMemo<AnnouncementItem[]>(() => {
     const rawList = storeSettings?.announcements;
     if (Array.isArray(rawList) && rawList.length > 0) {
       const filtered = rawList
-        .filter(item => item.isActive !== false && item.text && item.text.trim().length > 0)
+        .filter(item => {
+          if (item.isActive === false) return false;
+          const localized = getLocalizedAnnouncementText(item, language);
+          return Boolean(localized && localized.trim().length > 0);
+        })
         .sort((a, b) => (a.order || 0) - (b.order || 0));
       
       if (filtered.length > 0) {
@@ -59,14 +64,22 @@ export const AnnouncementTicker: React.FC<AnnouncementTickerProps> = ({ onPressA
     const legacyText = storeSettings?.announcementText?.trim();
     if (legacyText && !rawList) {
       return [
-        { id: 'legacy-ann', text: legacyText, isActive: true, order: 1, icon: 'sparkles', isHighlight: true },
+        { 
+          id: 'legacy-ann', 
+          text: legacyText, 
+          textAr: legacyText,
+          isActive: true, 
+          order: 1, 
+          icon: 'sparkles', 
+          isHighlight: true 
+        },
         ...DEFAULT_ANNOUNCEMENTS
       ];
     }
 
     // Default fallback
     return DEFAULT_ANNOUNCEMENTS;
-  }, [storeSettings?.announcements, storeSettings?.announcementText]);
+  }, [storeSettings?.announcements, storeSettings?.announcementText, language]);
 
   const handleTickerClick = () => {
     if (onPressAction) {
@@ -81,12 +94,14 @@ export const AnnouncementTicker: React.FC<AnnouncementTickerProps> = ({ onPressA
     return null;
   }
 
+  const isRtl = dir === 'rtl';
+
   return (
     <div 
       onClick={handleTickerClick}
       className="relative overflow-hidden bg-gradient-to-r from-[#004D2E] via-[#005A36] to-[#004D2E] text-white py-2 px-3 border-y border-[#003822] shadow-2xs cursor-pointer group select-none transition-colors hover:brightness-105"
-      dir="rtl"
-      title="انقر لتصفح أحدث العروض والمنتجات"
+      dir={dir}
+      title={t('common.viewProducts') || 'انقر لتصفح أحدث العروض والمنتجات'}
     >
       {/* Subtle edge fade overlays */}
       <div className="absolute top-0 right-0 bottom-0 w-8 bg-gradient-to-l from-[#004D2E] to-transparent z-10 pointer-events-none" />
@@ -94,10 +109,12 @@ export const AnnouncementTicker: React.FC<AnnouncementTickerProps> = ({ onPressA
 
       {/* Infinite loop track */}
       <div className="flex overflow-hidden">
-        <div className="animate-marquee-rtl flex items-center gap-8 py-0.5">
+        <div className={`${isRtl ? 'animate-marquee-rtl' : 'animate-marquee-ltr'} flex items-center gap-8 py-0.5`}>
           {/* Triple repetition ensures seamless continuous loop across all screen sizes */}
           {[...activeAnnouncements, ...activeAnnouncements, ...activeAnnouncements].map((item, index) => {
             const Icon = getAnnouncementIcon(item.icon);
+            const textToDisplay = getLocalizedAnnouncementText(item, language);
+
             return (
               <div 
                 key={`${item.id}-${index}`}
@@ -109,9 +126,9 @@ export const AnnouncementTicker: React.FC<AnnouncementTickerProps> = ({ onPressA
                   <Icon className="w-3 h-3" />
                 </div>
                 <span className={item.isHighlight ? 'text-amber-200 font-bold tracking-wide' : 'text-emerald-50'}>
-                  {item.text}
+                  {textToDisplay}
                 </span>
-                <span className="text-white/30 text-xs mr-4">•</span>
+                <span className={`text-white/30 text-xs ${isRtl ? 'mr-4' : 'ml-4'}`}>•</span>
               </div>
             );
           })}
@@ -120,4 +137,5 @@ export const AnnouncementTicker: React.FC<AnnouncementTickerProps> = ({ onPressA
     </div>
   );
 };
+
 

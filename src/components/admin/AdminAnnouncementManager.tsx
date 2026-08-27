@@ -20,10 +20,14 @@ import {
   RotateCcw,
   Megaphone,
   Layers,
-  HelpCircle
+  Globe,
+  Loader2,
+  Languages
 } from 'lucide-react';
-import { AnnouncementItem, AnnouncementIconType } from '../../types';
+import { AnnouncementItem, AnnouncementIconType, Language } from '../../types';
 import { adminService, DEFAULT_ANNOUNCEMENTS } from '../../services/adminService';
+import { translateAnnouncementContent } from '../../services/translationService';
+import { getLocalizedAnnouncementText } from '../../locales';
 
 interface AdminAnnouncementManagerProps {
   announcements: AnnouncementItem[];
@@ -42,6 +46,14 @@ const AVAILABLE_ICONS: { type: AnnouncementIconType; label: string; icon: any }[
   { type: 'percent', label: 'نسبة خصم (Percent)', icon: Percent },
 ];
 
+const PREVIEW_LANGS: { code: Language; label: string; flag: string; dir: 'rtl' | 'ltr' }[] = [
+  { code: 'ar', label: 'العربية', flag: '🇸🇾', dir: 'rtl' },
+  { code: 'de', label: 'Deutsch', flag: '🇩🇪', dir: 'ltr' },
+  { code: 'en', label: 'English', flag: '🇬🇧', dir: 'ltr' },
+  { code: 'uk', label: 'Українська', flag: '🇺🇦', dir: 'ltr' },
+  { code: 'fa', label: 'فارسی', flag: '🇮🇷', dir: 'rtl' },
+];
+
 const getIconComponent = (iconType?: string) => {
   const found = AVAILABLE_ICONS.find(i => i.type === iconType);
   return found ? found.icon : Sparkles;
@@ -55,13 +67,22 @@ export const AdminAnnouncementManager: React.FC<AdminAnnouncementManagerProps> =
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<AnnouncementItem | null>(null);
   
-  // Form state
-  const [formText, setFormText] = useState('');
+  // Multilingual Form state
+  const [formTextAr, setFormTextAr] = useState('');
+  const [formTextDe, setFormTextDe] = useState('');
+  const [formTextEn, setFormTextEn] = useState('');
+  const [formTextUk, setFormTextUk] = useState('');
+  const [formTextFa, setFormTextFa] = useState('');
+  
   const [formIcon, setFormIcon] = useState<AnnouncementIconType>('sparkles');
   const [formIsActive, setFormIsActive] = useState(true);
   const [formIsHighlight, setFormIsHighlight] = useState(false);
   const [formOrder, setFormOrder] = useState<number>(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isTranslating, setIsTranslating] = useState(false);
+
+  // Admin live preview language toggle
+  const [previewLang, setPreviewLang] = useState<Language>('ar');
 
   // Sorted list based on order
   const sortedList = [...announcements].sort((a, b) => (a.order || 0) - (b.order || 0));
@@ -69,7 +90,11 @@ export const AdminAnnouncementManager: React.FC<AdminAnnouncementManagerProps> =
 
   const handleOpenAdd = () => {
     setEditingItem(null);
-    setFormText('');
+    setFormTextAr('');
+    setFormTextDe('');
+    setFormTextEn('');
+    setFormTextUk('');
+    setFormTextFa('');
     setFormIcon('sparkles');
     setFormIsActive(true);
     setFormIsHighlight(false);
@@ -79,7 +104,11 @@ export const AdminAnnouncementManager: React.FC<AdminAnnouncementManagerProps> =
 
   const handleOpenEdit = (item: AnnouncementItem) => {
     setEditingItem(item);
-    setFormText(item.text);
+    setFormTextAr(item.textAr || item.text || '');
+    setFormTextDe(item.textDe || '');
+    setFormTextEn(item.textEn || '');
+    setFormTextUk(item.textUk || '');
+    setFormTextFa(item.textFa || '');
     setFormIcon((item.icon as AnnouncementIconType) || 'sparkles');
     setFormIsActive(item.isActive !== false);
     setFormIsHighlight(Boolean(item.isHighlight));
@@ -87,26 +116,59 @@ export const AdminAnnouncementManager: React.FC<AdminAnnouncementManagerProps> =
     setIsModalOpen(true);
   };
 
+  const handleAutoTranslate = async () => {
+    const textToTranslate = formTextAr.trim();
+    if (!textToTranslate) {
+      showToast('⚠️ يرجى كتابة نص الإعلان بالعربية أولاً ليتم ترجمته تلقائياً');
+      return;
+    }
+
+    setIsTranslating(true);
+    try {
+      const result = await translateAnnouncementContent(textToTranslate);
+      if (result) {
+        setFormTextDe(result.textDe || '');
+        setFormTextEn(result.textEn || '');
+        setFormTextUk(result.textUk || '');
+        setFormTextFa(result.textFa || '');
+        showToast('✨ تم توليد ترجمات الإعلان بـ 5 لغات بواسطة الذكاء الاصطناعي بنجاح!');
+      }
+    } catch (err: any) {
+      console.error('Auto-translate error:', err);
+      showToast(`❌ ${err?.message || 'تعذر توليد الترجمة التلقائية'}`);
+    } finally {
+      setIsTranslating(false);
+    }
+  };
+
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formText.trim()) {
-      showToast('⚠️ يرجى كتابة نص الإعلان أولاً');
+    const cleanAr = formTextAr.trim();
+    if (!cleanAr) {
+      showToast('⚠️ يرجى كتابة نص الإعلان باللغة العربية أولاً');
       return;
     }
 
     setIsSubmitting(true);
     try {
+      const payload: Omit<AnnouncementItem, 'id'> = {
+        text: cleanAr, // Legacy compatibility
+        textAr: cleanAr,
+        textDe: formTextDe.trim() || undefined,
+        textEn: formTextEn.trim() || undefined,
+        textUk: formTextUk.trim() || undefined,
+        textFa: formTextFa.trim() || undefined,
+        icon: formIcon,
+        isActive: formIsActive,
+        isHighlight: formIsHighlight,
+        order: Number(formOrder) || (editingItem ? editingItem.order : sortedList.length + 1)
+      };
+
       if (editingItem) {
         // Update
-        const success = await adminService.updateAnnouncement(editingItem.id, {
-          text: formText.trim(),
-          icon: formIcon,
-          isActive: formIsActive,
-          isHighlight: formIsHighlight,
-          order: Number(formOrder) || editingItem.order
-        });
+        const success = await adminService.updateAnnouncement(editingItem.id, payload);
         if (success) {
-          showToast('✅ تم تعديل الإعلان وحفظه في Firestore بنجاح');
+          showToast('✅ تم تعديل الإعلان وحفظ الترجمات في Firestore بنجاح');
           setIsModalOpen(false);
           await onReload();
         } else {
@@ -114,15 +176,9 @@ export const AdminAnnouncementManager: React.FC<AdminAnnouncementManagerProps> =
         }
       } else {
         // Add new
-        const success = await adminService.addAnnouncement({
-          text: formText.trim(),
-          icon: formIcon,
-          isActive: formIsActive,
-          isHighlight: formIsHighlight,
-          order: Number(formOrder) || (sortedList.length + 1)
-        });
+        const success = await adminService.addAnnouncement(payload);
         if (success) {
-          showToast('✅ تم إضافة الإعلان الجديد وحفظه في Firestore بنجاح');
+          showToast('✅ تم إضافة الإعلان متعدد اللغات في Firestore بنجاح');
           setIsModalOpen(false);
           await onReload();
         } else {
@@ -138,7 +194,8 @@ export const AdminAnnouncementManager: React.FC<AdminAnnouncementManagerProps> =
   };
 
   const handleDelete = async (item: AnnouncementItem) => {
-    if (window.confirm(`هل أنت متأكد من حذف الإعلان التالي نهائياً؟\n\n"${item.text}"`)) {
+    const textPreview = item.textAr || item.text;
+    if (window.confirm(`هل أنت متأكد من حذف الإعلان التالي نهائياً؟\n\n"${textPreview}"`)) {
       const success = await adminService.deleteAnnouncement(item.id);
       if (success) {
         showToast('🗑️ تم حذف الإعلان من Firestore');
@@ -189,10 +246,10 @@ export const AdminAnnouncementManager: React.FC<AdminAnnouncementManagerProps> =
   };
 
   const handleResetDefaults = async () => {
-    if (window.confirm('هل تريد استعادة الإعلانات الترويجية الافتراضية للمتجر؟\n\nسيتم استبدال القائمة الحالية بالنصوص القياسية لبركة ماركت 24.')) {
+    if (window.confirm('هل تريد استعادة الإعلانات الترويجية الافتراضية متعددة اللغات لمتجر بركة ماركت 24؟\n\nسيتم استبدال القائمة الحالية بالنصوص الافتراضية المترجمة.')) {
       const success = await adminService.saveAnnouncements(DEFAULT_ANNOUNCEMENTS);
       if (success) {
-        showToast('🔄 تم استعادة الإعلانات الافتراضية');
+        showToast('🔄 تم استعادة الإعلانات الافتراضية بجميع اللغات');
         await onReload();
       } else {
         showToast('❌ تعذر الاستعادة');
@@ -212,13 +269,13 @@ export const AdminAnnouncementManager: React.FC<AdminAnnouncementManagerProps> =
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="font-black text-base text-stone-900">إدارة شريط الإعلانات المتحرك</h2>
+                <h2 className="font-black text-base text-stone-900">إدارة شريط الإعلانات المتحرك (متعدد اللغات)</h2>
                 <span className="bg-emerald-100 text-emerald-900 text-[10px] font-black px-2 py-0.5 rounded-full border border-emerald-200">
                   {activeCount} مفعّل من أصل {sortedList.length}
                 </span>
               </div>
               <p className="text-xs text-stone-500 font-medium">
-                تحكم كامل في نصوص التنبيهات والعروض الترويجية التي تظهر وتتحرك في أعلى واجهة المتجر للزبائن
+                تحكم كامل في نصوص التنبيهات والعروض الترويجية مع دعم 5 لغات وترجمة ذكية فورية بالذكاء الاصطناعي (Gemini)
               </p>
             </div>
           </div>
@@ -243,14 +300,35 @@ export const AdminAnnouncementManager: React.FC<AdminAnnouncementManagerProps> =
           </div>
         </div>
 
-        {/* Live Preview Box */}
-        <div className="bg-stone-900 text-white p-3.5 rounded-2xl border border-stone-800 space-y-2">
-          <div className="flex items-center justify-between text-[11px] text-stone-400 font-bold border-b border-stone-800 pb-1.5">
+        {/* Live Preview Box with Language Switcher */}
+        <div className="bg-stone-900 text-white p-3.5 rounded-2xl border border-stone-800 space-y-2.5">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-[11px] text-stone-400 font-bold border-b border-stone-800 pb-2">
             <span className="flex items-center gap-1.5 text-amber-300">
               <Sparkles className="w-3.5 h-3.5" />
-              <span>معاينة حية لشريط الإعلانات كما يراه العميل الآن:</span>
+              <span>معاينة شريط الإعلانات كما يراه العميل:</span>
             </span>
-            <span className="text-[10px] text-stone-400">{activeCount} إعلانات نشطة في المتجر</span>
+
+            {/* Language preview selector chips */}
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[10px] text-stone-400 flex items-center gap-1">
+                <Globe className="w-3 h-3 text-emerald-400" />
+                <span>معاينة بلغة:</span>
+              </span>
+              {PREVIEW_LANGS.map(langOpt => (
+                <button
+                  key={langOpt.code}
+                  onClick={() => setPreviewLang(langOpt.code)}
+                  className={`px-2 py-0.5 rounded-lg text-[10px] font-bold flex items-center gap-1 transition-all cursor-pointer ${
+                    previewLang === langOpt.code
+                      ? 'bg-emerald-700 text-white shadow-xs border border-emerald-500'
+                      : 'bg-stone-800 text-stone-400 hover:bg-stone-700 hover:text-stone-200'
+                  }`}
+                >
+                  <span>{langOpt.flag}</span>
+                  <span>{langOpt.label}</span>
+                </button>
+              ))}
+            </div>
           </div>
 
           {activeCount === 0 ? (
@@ -258,12 +336,16 @@ export const AdminAnnouncementManager: React.FC<AdminAnnouncementManagerProps> =
               ⚠️ لا توجد إعلانات نشطة حالياً. شريط الإعلانات سيستخدم النصوص الافتراضية.
             </div>
           ) : (
-            <div className="overflow-hidden bg-emerald-950/60 border border-emerald-800/40 rounded-xl p-2 select-none">
+            <div 
+              className="overflow-hidden bg-emerald-950/60 border border-emerald-800/40 rounded-xl p-2 select-none"
+              dir={PREVIEW_LANGS.find(l => l.code === previewLang)?.dir || 'rtl'}
+            >
               <div className="flex items-center gap-4 overflow-x-auto no-scrollbar py-1">
                 {sortedList
                   .filter(a => a.isActive !== false)
                   .map((item, idx) => {
                     const Icon = getIconComponent(item.icon);
+                    const displayedText = getLocalizedAnnouncementText(item, previewLang);
                     return (
                       <div key={item.id} className="flex items-center gap-2 shrink-0 bg-stone-900/80 px-3 py-1.5 rounded-lg border border-emerald-500/20">
                         <div className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${
@@ -272,7 +354,7 @@ export const AdminAnnouncementManager: React.FC<AdminAnnouncementManagerProps> =
                           <Icon className="w-3 h-3" />
                         </div>
                         <span className={`text-xs ${item.isHighlight ? 'text-amber-300 font-bold' : 'text-emerald-100'}`}>
-                          {item.text}
+                          {displayedText || '(لا يوجد نص لهذه اللغة)'}
                         </span>
                         {idx < activeCount - 1 && <span className="text-stone-600 mr-2">•</span>}
                       </div>
@@ -320,6 +402,13 @@ export const AdminAnnouncementManager: React.FC<AdminAnnouncementManagerProps> =
               const isActive = item.isActive !== false;
               const isHighlight = Boolean(item.isHighlight);
 
+              // Available translation flags
+              const hasAr = Boolean(item.textAr?.trim() || item.text?.trim());
+              const hasDe = Boolean(item.textDe?.trim());
+              const hasEn = Boolean(item.textEn?.trim());
+              const hasUk = Boolean(item.textUk?.trim());
+              const hasFa = Boolean(item.textFa?.trim());
+
               return (
                 <div 
                   key={item.id}
@@ -365,12 +454,32 @@ export const AdminAnnouncementManager: React.FC<AdminAnnouncementManagerProps> =
                     </div>
 
                     {/* Text & Metadata */}
-                    <div className="space-y-1 flex-1">
+                    <div className="space-y-1.5 flex-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className={`text-xs font-bold leading-relaxed ${
                           !isActive ? 'text-stone-500 line-through' : 'text-stone-900'
                         }`}>
-                          {item.text}
+                          {item.textAr || item.text}
+                        </span>
+                      </div>
+
+                      {/* Language badges */}
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-[10px] text-stone-400 font-semibold">اللغات المتوفرة:</span>
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${hasAr ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-stone-100 text-stone-400'}`}>
+                          🇸🇾 AR
+                        </span>
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${hasDe ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-stone-100 text-stone-400'}`}>
+                          🇩🇪 DE
+                        </span>
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${hasEn ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-stone-100 text-stone-400'}`}>
+                          🇬🇧 EN
+                        </span>
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${hasUk ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-stone-100 text-stone-400'}`}>
+                          🇺🇦 UK
+                        </span>
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${hasFa ? 'bg-emerald-100 text-emerald-800 border border-emerald-300' : 'bg-stone-100 text-stone-400'}`}>
+                          🇮🇷 FA
                         </span>
                       </div>
 
@@ -417,7 +526,7 @@ export const AdminAnnouncementManager: React.FC<AdminAnnouncementManagerProps> =
                     <button
                       onClick={() => handleOpenEdit(item)}
                       className="p-2 rounded-xl bg-stone-100 hover:bg-emerald-50 text-stone-700 hover:text-emerald-900 border border-stone-200 transition-colors cursor-pointer flex items-center gap-1 text-xs font-bold"
-                      title="تعديل الإعلان"
+                      title="تعديل الإعلان والترجمات"
                     >
                       <Edit3 className="w-3.5 h-3.5" />
                       <span>تعديل</span>
@@ -441,16 +550,16 @@ export const AdminAnnouncementManager: React.FC<AdminAnnouncementManagerProps> =
       </div>
 
       {/* ========================================================= */}
-      {/* MODAL: Add / Edit Announcement                            */}
+      {/* MODAL: Add / Edit Multilingual Announcement               */}
       {/* ========================================================= */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-lg w-full p-5 space-y-4 shadow-2xl animate-in zoom-in-95" dir="rtl">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-5 space-y-4 shadow-2xl animate-in zoom-in-95 max-h-[90vh] overflow-y-auto" dir="rtl">
             <div className="flex justify-between items-center border-b border-stone-100 pb-3">
               <div className="flex items-center gap-2 text-stone-900">
                 <Megaphone className="w-5 h-5 text-emerald-800" />
                 <h3 className="font-extrabold text-sm text-stone-900">
-                  {editingItem ? 'تعديل نص الإعلان' : 'إضافة إعلان جديد لشريط الإعلانات'}
+                  {editingItem ? 'تعديل الإعلان وترجماته' : 'إضافة إعلان جديد متعدد اللغات'}
                 </h3>
               </div>
               <button 
@@ -461,29 +570,131 @@ export const AdminAnnouncementManager: React.FC<AdminAnnouncementManagerProps> =
               </button>
             </div>
 
-            <form onSubmit={handleSave} className="space-y-3.5 text-xs">
+            <form onSubmit={handleSave} className="space-y-4 text-xs">
               
-              {/* Text Input */}
-              <div className="space-y-1">
+              {/* Arabic Primary Input + AI Auto-Translate Trigger */}
+              <div className="space-y-2 bg-emerald-50/50 p-3.5 rounded-2xl border border-emerald-200">
                 <div className="flex items-center justify-between">
-                  <label className="font-bold text-stone-700">نص الإعلان أو التنبيه *</label>
-                  <span className="text-[10px] text-stone-400">{formText.length} حرف</span>
+                  <label className="font-extrabold text-emerald-950 flex items-center gap-1.5">
+                    <span>🇸🇾</span>
+                    <span>نص الإعلان باللغة العربية (الأساسي) *</span>
+                  </label>
+                  <span className="text-[10px] text-emerald-700 font-mono font-bold">{formTextAr.length} حرف</span>
                 </div>
                 <textarea
-                  rows={3}
+                  rows={2}
                   required
                   placeholder="مثال: شحن سريع مجاني لجميع الطلبات فوق 50 يورو داخل غرايفسفالد 🚚"
-                  value={formText}
-                  onChange={(e) => setFormText(e.target.value)}
-                  className="w-full bg-stone-50 border border-stone-200 rounded-xl p-3 font-medium text-xs leading-relaxed focus:border-emerald-700 outline-hidden focus:bg-white transition-all"
+                  value={formTextAr}
+                  onChange={(e) => setFormTextAr(e.target.value)}
+                  className="w-full bg-white border border-emerald-300 rounded-xl p-2.5 font-medium text-xs leading-relaxed focus:border-emerald-700 outline-hidden focus:ring-2 focus:ring-emerald-600/20 transition-all"
                 />
-                <p className="text-[10px] text-stone-400">
-                  نصيحة: يمكنك إضافة إيموجي (مثل 🚚 🌟 🏷️ 🔥) لزيادة جاذبية الإعلان للزبائن.
-                </p>
+                
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1">
+                  <p className="text-[10px] text-emerald-800">
+                    💡 اكتب النص هنا ثم اضغط على زر الترجمة الذكية لترجمته فوراً إلى باقي اللغات.
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={handleAutoTranslate}
+                    disabled={isTranslating || !formTextAr.trim()}
+                    className="bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white font-bold px-3.5 py-1.5 rounded-xl shadow-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 text-xs active:scale-95 shrink-0"
+                    title="ترجمة تلقائية وفورية بجميع اللغات عبر الذكاء الاصطناعي"
+                  >
+                    {isTranslating ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                        <span>جاري الترجمة الذكية...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+                        <span>ترجمة ذكية بـ 5 لغات (AI)</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Other 4 Languages Grid */}
+              <div className="space-y-2.5">
+                <div className="flex items-center gap-1.5 text-stone-700 font-bold text-xs">
+                  <Languages className="w-4 h-4 text-emerald-800" />
+                  <span>الترجمات للغات الأخرى (ألمانية، إنجليزية، أوكرانية، فارسية):</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  
+                  {/* German */}
+                  <div className="space-y-1 bg-stone-50 p-2.5 rounded-xl border border-stone-200">
+                    <label className="font-bold text-stone-700 flex items-center justify-between text-[11px]">
+                      <span className="flex items-center gap-1">🇩🇪 Deutsch (الألمانية)</span>
+                      <span className="text-[9px] text-stone-400 font-mono">LTR</span>
+                    </label>
+                    <input
+                      type="text"
+                      dir="ltr"
+                      placeholder="z.B. Schnelle Lieferung in Greifswald 🚚"
+                      value={formTextDe}
+                      onChange={(e) => setFormTextDe(e.target.value)}
+                      className="w-full bg-white border border-stone-200 rounded-lg p-2 text-xs focus:border-emerald-700 outline-hidden"
+                    />
+                  </div>
+
+                  {/* English */}
+                  <div className="space-y-1 bg-stone-50 p-2.5 rounded-xl border border-stone-200">
+                    <label className="font-bold text-stone-700 flex items-center justify-between text-[11px]">
+                      <span className="flex items-center gap-1">🇬🇧 English (الإنجليزية)</span>
+                      <span className="text-[9px] text-stone-400 font-mono">LTR</span>
+                    </label>
+                    <input
+                      type="text"
+                      dir="ltr"
+                      placeholder="e.g. Fast free delivery over 50€ 🚚"
+                      value={formTextEn}
+                      onChange={(e) => setFormTextEn(e.target.value)}
+                      className="w-full bg-white border border-stone-200 rounded-lg p-2 text-xs focus:border-emerald-700 outline-hidden"
+                    />
+                  </div>
+
+                  {/* Ukrainian */}
+                  <div className="space-y-1 bg-stone-50 p-2.5 rounded-xl border border-stone-200">
+                    <label className="font-bold text-stone-700 flex items-center justify-between text-[11px]">
+                      <span className="flex items-center gap-1">🇺🇦 Українська (الأوكرانية)</span>
+                      <span className="text-[9px] text-stone-400 font-mono">LTR</span>
+                    </label>
+                    <input
+                      type="text"
+                      dir="ltr"
+                      placeholder="наприклад, Швидка доставка у Грайфсвальді 🚚"
+                      value={formTextUk}
+                      onChange={(e) => setFormTextUk(e.target.value)}
+                      className="w-full bg-white border border-stone-200 rounded-lg p-2 text-xs focus:border-emerald-700 outline-hidden"
+                    />
+                  </div>
+
+                  {/* Persian / Farsi */}
+                  <div className="space-y-1 bg-stone-50 p-2.5 rounded-xl border border-stone-200">
+                    <label className="font-bold text-stone-700 flex items-center justify-between text-[11px]">
+                      <span className="flex items-center gap-1">🇮🇷 فارسی (الفارسية)</span>
+                      <span className="text-[9px] text-stone-400 font-mono">RTL</span>
+                    </label>
+                    <input
+                      type="text"
+                      dir="rtl"
+                      placeholder="مثال: ارسال سریع و رایگان به گرایفسوالد 🚚"
+                      value={formTextFa}
+                      onChange={(e) => setFormTextFa(e.target.value)}
+                      className="w-full bg-white border border-stone-200 rounded-lg p-2 text-xs focus:border-emerald-700 outline-hidden"
+                    />
+                  </div>
+
+                </div>
               </div>
 
               {/* Icon Selector */}
-              <div className="space-y-1.5">
+              <div className="space-y-1.5 pt-1">
                 <label className="font-bold text-stone-700">اختر الأيقونة المرافقة للإعلان:</label>
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   {AVAILABLE_ICONS.map((opt) => {
@@ -568,7 +779,7 @@ export const AdminAnnouncementManager: React.FC<AdminAnnouncementManagerProps> =
               <div className="flex gap-2 pt-3 border-t border-stone-100">
                 <button
                   type="submit"
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || isTranslating}
                   className="flex-1 bg-emerald-800 hover:bg-emerald-900 text-white font-bold py-2.5 rounded-xl cursor-pointer shadow-xs transition-all disabled:opacity-50 flex items-center justify-center gap-1.5"
                 >
                   {isSubmitting ? (
@@ -598,3 +809,4 @@ export const AdminAnnouncementManager: React.FC<AdminAnnouncementManagerProps> =
     </div>
   );
 };
+

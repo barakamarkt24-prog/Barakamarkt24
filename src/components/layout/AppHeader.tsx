@@ -1,6 +1,7 @@
 import React from 'react';
 import { 
   ChevronRight, 
+  ChevronLeft,
   Heart, 
   Search, 
   ShieldCheck, 
@@ -19,25 +20,31 @@ export const AppHeader: React.FC = () => {
     wishlist, 
     currentUser, 
     searchQuery,
-    setSearchQuery 
+    setSearchQuery,
+    t,
+    dir
   } = useApp();
 
   const isSubScreen = !['home', 'categories', 'cart', 'orders', 'profile'].includes(currentScreen);
 
   const getScreenTitle = () => {
     switch (currentScreen) {
-      case 'categories': return 'الأقسام والمؤونة';
-      case 'products': return 'قائمة المنتجات';
-      case 'product-detail': return 'تفاصيل المنتج';
-      case 'cart': return 'سلة المشتريات';
-      case 'auth': return 'تسجيل الدخول والتسجيل';
-      case 'profile': return 'حسابي';
-      case 'orders': return 'طلباتي';
-      case 'wishlist': return 'المفضلة';
-      case 'admin': return 'لوحة تحكم المدير';
+      case 'categories': return t('nav.categories');
+      case 'products': return t('nav.products');
+      case 'product-detail': return t('product.details');
+      case 'cart': return t('nav.cart');
+      case 'auth': return t('auth.loginTitle');
+      case 'profile': return t('nav.profile');
+      case 'orders': return t('nav.orders');
+      case 'wishlist': return t('nav.wishlist');
+      case 'admin': return t('nav.admin');
+      case 'driver': return t('nav.driver');
+      case 'legal': return t('nav.legal');
       default: return 'Barakamarkt24';
     }
   };
+
+  const BackIcon = dir === 'rtl' ? ChevronRight : ChevronLeft;
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-stone-200/70 px-4 py-2.5 select-none shadow-2xs">
@@ -49,9 +56,9 @@ export const AppHeader: React.FC = () => {
             <button
               onClick={goBack}
               className="w-9 h-9 rounded-xl bg-stone-100 hover:bg-stone-200 text-stone-800 flex items-center justify-center transition-colors cursor-pointer active:scale-95"
-              aria-label="رجوع"
+              aria-label={t('nav.back')}
             >
-              <ChevronRight className="w-5 h-5" />
+              <BackIcon className="w-5 h-5" />
             </button>
           ) : (
             <button 
@@ -87,10 +94,10 @@ export const AppHeader: React.FC = () => {
                   ? 'bg-[#005A36] text-white border-[#005A36] shadow-xs'
                   : 'bg-emerald-50 text-[#005A36] border-emerald-200 hover:bg-emerald-100'
               }`}
-              title="لوحة تحكم المدير"
+              title={t('admin.dashboard')}
             >
               <ShieldCheck className="w-3.5 h-3.5 text-[#3B8EAA]" />
-              <span className="hidden xs:inline">{currentScreen === 'admin' ? 'وضع المتجر' : 'لوحة المدير'}</span>
+              <span className="hidden xs:inline">{currentScreen === 'admin' ? t('nav.storeMode') : t('nav.adminBadge')}</span>
             </button>
           )}
 
@@ -99,7 +106,7 @@ export const AppHeader: React.FC = () => {
             <button
               onClick={() => navigateTo('products')}
               className="w-9 h-9 rounded-xl bg-stone-50 hover:bg-emerald-50 text-stone-700 hover:text-[#005A36] flex items-center justify-center border border-stone-200/80 cursor-pointer active:scale-95 transition-colors"
-              aria-label="البحث"
+              aria-label={t('nav.search')}
             >
               <Search className="w-4 h-4" />
             </button>
@@ -109,7 +116,7 @@ export const AppHeader: React.FC = () => {
           <button
             onClick={() => navigateTo('wishlist')}
             className="w-9 h-9 rounded-xl bg-stone-50 hover:bg-rose-50 text-stone-700 hover:text-rose-600 flex items-center justify-center border border-stone-200/80 relative cursor-pointer active:scale-95 transition-colors"
-            aria-label="المفضلة"
+            aria-label={t('nav.wishlist')}
           >
             <Heart className={`w-4 h-4 ${wishlist.length > 0 ? 'text-rose-500 fill-rose-500' : 'text-stone-600'}`} />
             {wishlist.length > 0 && (

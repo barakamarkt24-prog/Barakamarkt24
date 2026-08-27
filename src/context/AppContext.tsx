@@ -7,16 +7,49 @@ import {
   Screen, 
   BottomNavTab, 
   User,
-  Order 
+  Order,
+  Language
 } from '../types';
+import { 
+  translate, 
+  getDirection, 
+  getLocalizedProductName, 
+  getLocalizedProductDesc, 
+  getLocalizedCategoryName, 
+  getLocalizedCategoryDescription,
+  getLocalizedSubcategoryName, 
+  DEFAULT_LANGUAGE, 
+  STORAGE_KEY_LANGUAGE 
+} from '../locales';
 import { productService } from '../services/productService';
 import { authService } from '../services/authService';
 import { favoriteService } from '../services/favoriteService';
 import { fcmService } from '../services/fcmService';
+import { oneSignalService } from '../services/oneSignalService';
 import { orderService } from '../services/orderService';
 import { adminService, AppSettings, DEFAULT_SETTINGS } from '../services/adminService';
 
 interface AppContextType {
+  // Multilingual / i18n
+  language: Language;
+  setLanguage: (lang: Language) => void;
+  dir: 'rtl' | 'ltr';
+  t: (path: string, variables?: Record<string, string | number>) => string;
+  isLanguageModalOpen: boolean;
+  setIsLanguageModalOpen: (open: boolean) => void;
+  openLanguageModal: () => void;
+  closeLanguageModal: () => void;
+  isFirstTimeLanguageModalOpen: boolean;
+  setIsFirstTimeLanguageModalOpen: (open: boolean) => void;
+  closeFirstTimeLanguageModal: () => void;
+  getProductName: (product: Product | null | undefined) => string;
+  getProductDesc: (product: Product | null | undefined) => string;
+  getProductDescription: (product: Product | null | undefined) => string;
+  getCategoryName: (category: Category | null | undefined) => string;
+  getCategoryDescription: (category: Category | null | undefined) => string;
+  getCategoryDesc: (category: Category | null | undefined) => string;
+  getSubcategoryName: (subcategory: Subcategory | null | undefined) => string;
+
   // Navigation
   currentScreen: Screen;
   activeTab: BottomNavTab;
@@ -122,6 +155,85 @@ const STORAGE_KEY_CART = 'baraka_cart_v1';
 const STORAGE_KEY_WISHLIST = 'baraka_wishlist_v1';
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Multilingual / i18n
+  const [language, setLanguageState] = useState<Language>(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY_LANGUAGE);
+      if (saved && (saved === 'ar' || saved === 'de' || saved === 'en' || saved === 'uk' || saved === 'fa')) {
+        return saved as Language;
+      }
+    } catch {
+      // ignore
+    }
+    return DEFAULT_LANGUAGE;
+  });
+
+  const [isLanguageModalOpen, setIsLanguageModalOpen] = useState<boolean>(false);
+  const [isFirstTimeLanguageModalOpen, setIsFirstTimeLanguageModalOpen] = useState<boolean>(() => {
+    try {
+      return !localStorage.getItem(STORAGE_KEY_LANGUAGE);
+    } catch {
+      return false;
+    }
+  });
+
+  const setLanguage = (newLang: Language) => {
+    setLanguageState(newLang);
+    setIsLanguageModalOpen(false);
+    setIsFirstTimeLanguageModalOpen(false);
+    try {
+      localStorage.setItem(STORAGE_KEY_LANGUAGE, newLang);
+    } catch {
+      // ignore
+    }
+    document.documentElement.lang = newLang;
+    document.documentElement.dir = getDirection(newLang);
+  };
+
+  const dir = getDirection(language);
+
+  // Sync document lang and dir on startup and language change
+  useEffect(() => {
+    document.documentElement.lang = language;
+    document.documentElement.dir = dir;
+  }, [language, dir]);
+
+  const openLanguageModal = () => setIsLanguageModalOpen(true);
+  const closeLanguageModal = () => setIsLanguageModalOpen(false);
+  const closeFirstTimeLanguageModal = () => setIsFirstTimeLanguageModalOpen(false);
+
+  const t = (path: string, variables?: Record<string, string | number>) => {
+    return translate(language, path, variables);
+  };
+
+  const getProductName = (product: Product | null | undefined) => {
+    return getLocalizedProductName(product, language);
+  };
+
+  const getProductDesc = (product: Product | null | undefined) => {
+    return getLocalizedProductDesc(product, language);
+  };
+
+  const getProductDescription = (product: Product | null | undefined) => {
+    return getLocalizedProductDesc(product, language);
+  };
+
+  const getCategoryName = (category: Category | null | undefined) => {
+    return getLocalizedCategoryName(category, language);
+  };
+
+  const getCategoryDescription = (category: Category | null | undefined) => {
+    return getLocalizedCategoryDescription(category, language);
+  };
+
+  const getCategoryDesc = (category: Category | null | undefined) => {
+    return getLocalizedCategoryDescription(category, language);
+  };
+
+  const getSubcategoryName = (subcategory: Subcategory | null | undefined) => {
+    return getLocalizedSubcategoryName(subcategory, language);
+  };
+
   // Navigation
   const [currentScreen, setCurrentScreen] = useState<Screen>('home');
   const [activeTab, setActiveTab] = useState<BottomNavTab>('home');
@@ -215,6 +327,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     loadAllData();
 
+    // Initialize OneSignal Web SDK and set up deep link click handler
+    oneSignalService.init((data) => {
+      if (data?.screen) {
+        const screen = data.screen as Screen;
+        if (['home', 'categories', 'products', 'cart', 'auth', 'profile', 'orders', 'wishlist', 'driver', 'admin', 'legal'].includes(screen)) {
+          navigateTo(screen);
+        }
+      } else if (data?.orderId) {
+        navigateTo('orders');
+      }
+    }).catch(() => {});
+
+    // Check URL parameters on mount (e.g. from background push notification click)
+    try {
+      const searchParams = new URLSearchParams(window.location.search);
+      const urlScreen = searchParams.get('screen') as Screen | null;
+      if (urlScreen && ['home', 'categories', 'products', 'cart', 'auth', 'profile', 'orders', 'wishlist', 'driver', 'admin', 'legal'].includes(urlScreen)) {
+        setCurrentScreen(urlScreen);
+        setActiveTab(urlScreen === 'driver' ? 'driver' : urlScreen === 'orders' ? 'orders' : urlScreen === 'categories' ? 'categories' : urlScreen === 'profile' ? 'profile' : 'home');
+      }
+    } catch {}
+
     // Subscribe to auth state changes from Firebase
     const unsubAuth = authService.onUserChanged((user) => {
       const prevUser = currentUserRef.current;
@@ -222,6 +356,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setCurrentUser(user);
       setIsLoadingAuth(false);
       setIsAuthReady(true);
+
+      // Sync user session and role tags with OneSignal
+      oneSignalService.syncUser(user).catch(() => {});
 
       // Handle real-time role changes when an admin modifies user role
       if (prevUser && user && prevUser.id === user.id) {
@@ -568,8 +705,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addToCart = (product: Product, quantity = 1) => {
     const maxStock = getProductStock(product);
+    const prodName = getLocalizedProductName(product, language);
     if (maxStock <= 0 || product.isAvailable === false || product.inStock === false) {
-      showToast(`عذراً، المنتج "${product.nameAr || product.name}" غير متوفر في المخزن حالياً`);
+      showToast(t('product.itemUnavailable') || `عذراً، المنتج "${prodName}" غير متوفر في المخزن حالياً`);
       return;
     }
 
@@ -579,23 +717,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const currentQty = prev[existingIndex].quantity;
         const newQty = Math.min(maxStock, currentQty + quantity);
         if (currentQty >= maxStock) {
-          showToast(`لقد بلغت الحد الأقصى للمخزون المتوفر (${maxStock} ${product.unit || 'قطع'})`);
+          showToast(t('product.maxStockReached') || `لقد بلغت الحد الأقصى للمخزون المتوفر (${maxStock})`);
           return prev;
         }
         const updated = [...prev];
         updated[existingIndex].quantity = newQty;
-        showToast(`تم تحديث كمية "${product.nameAr || product.name}" إلى ${newQty}`);
+        showToast(t('product.addedToCart') || `تمت إضافة "${prodName}" إلى السلة`);
         return updated;
       }
       const initialQty = Math.min(maxStock, quantity);
-      showToast(`تمت إضافة "${product.nameAr || product.name}" إلى السلة`);
+      showToast(t('product.addedToCart') || `تمت إضافة "${prodName}" إلى السلة`);
       return [...prev, { product, quantity: initialQty }];
     });
   };
 
   const removeFromCart = (productId: string) => {
     setCart(prev => prev.filter(item => item.product.id !== productId));
-    showToast('تم حذف المنتج من السلة');
+    showToast(t('cart.itemRemoved') || 'تم حذف المنتج من السلة');
   };
 
   const updateQuantity = (productId: string, quantity: number) => {
@@ -607,7 +745,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (item.product.id === productId) {
         const maxStock = getProductStock(item.product);
         if (quantity > maxStock) {
-          showToast(`الحد الأقصى للمخزون المتوفر هو ${maxStock} ${item.product.unit || 'قطع'}`);
+          showToast(t('cart.maxStockLimit', { stock: maxStock }) || `الحد الأقصى للمخزون المتوفر هو ${maxStock}`);
           return { ...item, quantity: maxStock };
         }
         return { ...item, quantity };
@@ -744,11 +882,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return wishlist.some(p => p.id === productId);
   };
 
-  // Push Notifications (FCM Readiness)
+  // Push Notifications (OneSignal & Web Push Readiness)
   const requestPushNotifications = async () => {
+    try {
+      await oneSignalService.requestPermission();
+      if (currentUser) {
+        await oneSignalService.syncUser(currentUser);
+      }
+    } catch {
+      // Non-blocking
+    }
     const token = await fcmService.requestPermissionAndGetToken(undefined, currentUser);
-    if (token) {
-      showToast('تم تفعيل الإشعارات بنجاح');
+    if (token || oneSignalService.isPushEnabled()) {
+      showToast('تم تفعيل الإشعارات بنجاح 🔔');
     }
     return token;
   };
@@ -818,6 +964,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   return (
     <AppContext.Provider
       value={{
+        // i18n
+        language,
+        setLanguage,
+        dir,
+        t,
+        isLanguageModalOpen,
+        setIsLanguageModalOpen,
+        openLanguageModal,
+        closeLanguageModal,
+        isFirstTimeLanguageModalOpen,
+        setIsFirstTimeLanguageModalOpen,
+        closeFirstTimeLanguageModal,
+        getProductName,
+        getProductDesc,
+        getProductDescription,
+        getCategoryName,
+        getCategoryDescription,
+        getCategoryDesc,
+        getSubcategoryName,
+
         currentScreen,
         activeTab,
         navigateTo,

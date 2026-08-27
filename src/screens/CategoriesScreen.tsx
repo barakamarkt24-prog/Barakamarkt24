@@ -21,7 +21,12 @@ export const CategoriesScreen: React.FC = () => {
     products, 
     navigateTo, 
     setSelectedCategoryId, 
-    setSelectedSubcategoryId 
+    setSelectedSubcategoryId,
+    dir,
+    t,
+    getCategoryName,
+    getCategoryDescription,
+    getSubcategoryName
   } = useApp();
 
   // Active category selected for viewing subcategories (hierarchical navigation)
@@ -79,7 +84,7 @@ export const CategoriesScreen: React.FC = () => {
   };
 
   return (
-    <div className="p-4 space-y-4 pb-12 max-w-5xl mx-auto">
+    <div className="p-4 space-y-4 pb-12 max-w-5xl mx-auto" dir={dir}>
       
       {/* If drilling down into a category */}
       {activeCategory ? (
@@ -90,11 +95,11 @@ export const CategoriesScreen: React.FC = () => {
               onClick={() => setActiveCategory(null)}
               className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 hover:text-emerald-900 px-2 py-1.5 rounded-xl hover:bg-emerald-50 transition-colors cursor-pointer"
             >
-              <ChevronRight className="w-4 h-4" />
-              <span>العودة إلى جميع الأقسام</span>
+              {dir === 'rtl' ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+              <span>{t('categories.backToAll')}</span>
             </button>
             <span className="text-xs font-semibold text-stone-500">
-              {getCategorySubcategories(activeCategory.id).length} أقسام فرعية
+              {getCategorySubcategories(activeCategory.id).length} {t('categories.subcategories')}
             </span>
           </div>
 
@@ -102,7 +107,7 @@ export const CategoriesScreen: React.FC = () => {
           <div className="relative rounded-2xl overflow-hidden border border-stone-200/80 bg-stone-900 text-white shadow-xs">
             <OptimizedImage 
               src={activeCategory.image} 
-              alt={activeCategory.nameAr || activeCategory.name} 
+              alt={getCategoryName(activeCategory)} 
               className="w-full h-36 sm:h-44 object-cover opacity-40"
               targetWidth={500}
               quality={75}
@@ -111,18 +116,18 @@ export const CategoriesScreen: React.FC = () => {
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent p-4 flex flex-col justify-end">
               <div className="flex items-center gap-2">
                 <span className="px-2.5 py-0.5 rounded-full bg-emerald-600 text-white text-[11px] font-bold">
-                  قسم رئيسي
+                  {t('categories.mainCategory')}
                 </span>
                 <span className="text-xs text-stone-300">
-                  {getProductCount(activeCategory.id)} منتج إجمالي
+                  {getProductCount(activeCategory.id)} {t('common.products')}
                 </span>
               </div>
               <h2 className="text-lg font-black text-white mt-1">
-                {activeCategory.nameAr || activeCategory.name}
+                {getCategoryName(activeCategory)}
               </h2>
-              {(activeCategory.descriptionAr || activeCategory.description) && (
+              {getCategoryDescription(activeCategory) && (
                 <p className="text-xs text-stone-300 line-clamp-2 mt-0.5">
-                  {activeCategory.descriptionAr || activeCategory.description}
+                  {getCategoryDescription(activeCategory)}
                 </p>
               )}
             </div>
@@ -138,13 +143,17 @@ export const CategoriesScreen: React.FC = () => {
                 <Package className="w-4 h-4" />
               </div>
               <div>
-                <h4 className="font-bold text-xs text-emerald-950">عرض جميع منتجات {activeCategory.nameAr || activeCategory.name}</h4>
-                <p className="text-[11px] text-emerald-700">تصفح كافة الأصناف دون فلترة فرعية ({getProductCount(activeCategory.id)} صنف)</p>
+                <h4 className="font-bold text-xs text-emerald-950">
+                  {t('categories.viewAllProductsOf', { name: getCategoryName(activeCategory) })}
+                </h4>
+                <p className="text-[11px] text-emerald-700">
+                  {t('categories.viewAllDesc', { count: getProductCount(activeCategory.id) })}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-1 text-xs font-bold text-emerald-900 group-hover:-translate-x-1 transition-transform">
-              <span>عرض الكل</span>
-              <ChevronLeft className="w-4 h-4" />
+              <span>{t('common.viewAll')}</span>
+              {dir === 'rtl' ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
             </div>
           </div>
 
@@ -152,12 +161,13 @@ export const CategoriesScreen: React.FC = () => {
           <div className="space-y-2">
             <h3 className="font-bold text-xs text-stone-700 flex items-center gap-1.5 px-1">
               <Layers className="w-3.5 h-3.5 text-emerald-700" />
-              <span>الأقسام الفرعية التابعة:</span>
+              <span>{t('categories.subcategoriesTitle')}:</span>
             </h3>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {getCategorySubcategories(activeCategory.id).map((sub) => {
                 const subCount = getProductCount(activeCategory.id, sub.nameAr || sub.name);
+                const localizedSubName = getSubcategoryName(sub);
                 return (
                   <div
                     key={sub.id}
@@ -168,7 +178,7 @@ export const CategoriesScreen: React.FC = () => {
                       {sub.image ? (
                         <img 
                           src={sub.image} 
-                          alt={sub.nameAr || sub.name}
+                          alt={localizedSubName}
                           className="w-12 h-12 rounded-xl object-cover border border-stone-100 shrink-0" 
                         />
                       ) : (
@@ -178,19 +188,23 @@ export const CategoriesScreen: React.FC = () => {
                       )}
                       <div className="space-y-0.5 truncate">
                         <h4 className="font-bold text-xs text-stone-900 group-hover:text-emerald-800 transition-colors truncate">
-                          {sub.nameAr || sub.name}
+                          {localizedSubName}
                         </h4>
-                        {sub.nameEn && (
+                        {sub.nameEn && sub.nameEn !== localizedSubName && (
                           <p className="text-[10px] text-stone-400 truncate">{sub.nameEn}</p>
                         )}
                         <span className="inline-block text-[10px] font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md">
-                          {subCount > 0 ? `${subCount} صنف` : 'متوفر للطلب'}
+                          {subCount > 0 ? `${subCount} ${t('common.products')}` : t('product.inStock')}
                         </span>
                       </div>
                     </div>
 
                     <div className="w-7 h-7 rounded-lg bg-stone-50 group-hover:bg-emerald-800 group-hover:text-white flex items-center justify-center text-stone-400 transition-colors shrink-0 mr-2">
-                      <ChevronLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+                      {dir === 'rtl' ? (
+                        <ChevronLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+                      ) : (
+                        <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+                      )}
                     </div>
                   </div>
                 );
@@ -208,12 +222,12 @@ export const CategoriesScreen: React.FC = () => {
                 <Grid className="w-5 h-5" />
               </div>
               <div>
-                <h2 className="font-extrabold text-sm text-stone-900">أقسام المؤونة والبقالية السورية</h2>
-                <p className="text-xs text-stone-500">اضغط على أي قسم لاستعراض أقسامه الفرعية وأصنافه البلدية</p>
+                <h2 className="font-extrabold text-sm text-stone-900">{t('categories.title')}</h2>
+                <p className="text-xs text-stone-500">{t('categories.subtitle')}</p>
               </div>
             </div>
             <span className="text-xs font-bold text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-xl border border-emerald-200/60 hidden sm:inline-block">
-              {activeCategories.length} قسم معتمد
+              {activeCategories.length} {t('categories.categories')}
             </span>
           </div>
 
@@ -222,6 +236,8 @@ export const CategoriesScreen: React.FC = () => {
             {activeCategories.map((cat) => {
               const count = getProductCount(cat.id);
               const subsCount = getCategorySubcategories(cat.id).length;
+              const localizedCatName = getCategoryName(cat);
+              const localizedCatDesc = getCategoryDescription(cat);
 
               return (
                 <div
@@ -233,7 +249,7 @@ export const CategoriesScreen: React.FC = () => {
                   <div className="relative aspect-4/3 overflow-hidden bg-stone-100">
                     <OptimizedImage 
                       src={cat.image} 
-                      alt={cat.nameAr || cat.name}
+                      alt={localizedCatName}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                       targetWidth={300}
                       quality={75}
@@ -242,12 +258,12 @@ export const CategoriesScreen: React.FC = () => {
                     <div className="absolute top-2 right-2 flex flex-col gap-1">
                       {subsCount > 0 && (
                         <span className="bg-stone-900/85 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-0.5 rounded-md shadow-xs">
-                          {subsCount} أقسام فرعية
+                          {subsCount} {t('categories.subcategories')}
                         </span>
                       )}
                     </div>
                     <span className="absolute bottom-2 right-2 bg-emerald-800/90 backdrop-blur-xs text-white text-[10px] font-bold px-2 py-0.5 rounded-md">
-                      {count} أصناف
+                      {count} {t('common.products')}
                     </span>
                   </div>
 
@@ -255,19 +271,23 @@ export const CategoriesScreen: React.FC = () => {
                   <div className="p-3 space-y-1 grow flex flex-col justify-between">
                     <div>
                       <h3 className="font-bold text-xs text-stone-900 group-hover:text-emerald-800 transition-colors line-clamp-1">
-                        {cat.nameAr || cat.name}
+                        {localizedCatName}
                       </h3>
-                      {(cat.descriptionAr || cat.description) && (
+                      {localizedCatDesc && (
                         <p className="text-[10px] text-stone-500 line-clamp-2 leading-relaxed mt-1">
-                          {cat.descriptionAr || cat.description}
+                          {localizedCatDesc}
                         </p>
                       )}
                     </div>
 
                     {/* Browse footer */}
                     <div className="pt-2 flex items-center justify-between text-[11px] font-bold text-emerald-800 border-t border-stone-100 mt-2">
-                      <span>{subsCount > 0 ? 'تصفح الأقسام الفرعية' : 'تصفح المنتجات'}</span>
-                      <ChevronLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
+                      <span>{subsCount > 0 ? t('categories.browseSubcategories') : t('categories.browseProducts')}</span>
+                      {dir === 'rtl' ? (
+                        <ChevronLeft className="w-3.5 h-3.5 group-hover:-translate-x-1 transition-transform" />
+                      ) : (
+                        <ChevronRight className="w-3.5 h-3.5 group-hover:translate-x-1 transition-transform" />
+                      )}
                     </div>
                   </div>
                 </div>

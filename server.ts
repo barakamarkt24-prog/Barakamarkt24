@@ -36,7 +36,7 @@ async function startServer() {
     res.json({ status: "ok" });
   });
 
-  // Single-request AI Product Translation Endpoint (Arabic -> German & English)
+  // Single-request AI Product Translation Endpoint (Arabic -> German, English, Ukrainian, Persian)
   app.post("/api/translate-product", async (req, res) => {
     try {
       const { nameAr, descriptionAr } = req.body;
@@ -46,7 +46,7 @@ async function startServer() {
 
       const ai = getGeminiClient();
       const prompt = `You are a professional food and grocery product localization expert for 'Barakamarkt24', an authentic Syrian and Middle Eastern grocery store in Germany.
-Translate and localize the following Arabic product details into German (De) and English (En).
+Translate and localize the following Arabic product details into German (de), English (en), Ukrainian (uk), and Persian/Farsi (fa).
 
 Arabic Product Name: "${nameAr.trim()}"
 Arabic Product Description: "${(descriptionAr || "").trim()}"
@@ -54,43 +54,308 @@ Arabic Product Description: "${(descriptionAr || "").trim()}"
 Requirements:
 1. 'nameDe': Authentic, natural German supermarket product title (e.g., 'Syrischer Halloumi-Käse', 'Aleppo Zaatar Kräutermischung').
 2. 'nameEn': Authentic, clear English grocery title (e.g., 'Syrian Halloumi Cheese', 'Aleppo Zaatar Herb Blend').
-3. 'descriptionDe': Natural, appealing 1-2 sentence German food description. If Arabic description is short or empty, write a pleasant 1-sentence product description.
-4. 'descriptionEn': Natural, appealing 1-2 sentence English food description. If Arabic description is short or empty, write a pleasant 1-sentence product description.
-5. Return clean JSON matching the schema.`;
+3. 'nameUk': Authentic, natural Ukrainian grocery title (e.g., 'Сирійський сир Халумі', 'Суміш трав Заатар з Алеппо').
+4. 'nameFa': Authentic, natural Persian/Farsi grocery title (e.g., 'پنیر حلومی سوری', 'مخلوط گیاهی زعتر حلب').
+5. 'descriptionDe': Natural, appealing 1-2 sentence German food description.
+6. 'descriptionEn': Natural, appealing 1-2 sentence English food description.
+7. 'descriptionUk': Natural, appealing 1-2 sentence Ukrainian food description.
+8. 'descriptionFa': Natural, appealing 1-2 sentence Persian food description.
+9. Return clean JSON matching the schema.`;
 
-      const response = await ai.models.generateContent({
-        model: "gemini-3.7-flash",
-        contents: prompt,
-        config: {
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              nameDe: { type: Type.STRING, description: "German product name" },
-              nameEn: { type: Type.STRING, description: "English product name" },
-              descriptionDe: { type: Type.STRING, description: "German product description" },
-              descriptionEn: { type: Type.STRING, description: "English product description" },
-            },
-            required: ["nameDe", "nameEn", "descriptionDe", "descriptionEn"],
-          },
-        },
-      });
+      const candidateModels = ["gemini-3.7-flash", "gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-3.6-flash"];
+      let lastError: any = null;
+      let text = "";
 
-      const text = response.text?.trim() || "{}";
+      for (const modelName of candidateModels) {
+        // Try up to 2 times for each model if a 503 or transient error occurs
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            if (attempt > 0) {
+              // Wait 1 second before retry
+              await new Promise((resolve) => setTimeout(resolve, 1000));
+            }
+
+            const response = await ai.models.generateContent({
+              model: modelName,
+              contents: prompt,
+              config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                  type: Type.OBJECT,
+                  properties: {
+                    nameDe: { type: Type.STRING, description: "German product name" },
+                    nameEn: { type: Type.STRING, description: "English product name" },
+                    nameUk: { type: Type.STRING, description: "Ukrainian product name" },
+                    nameFa: { type: Type.STRING, description: "Persian product name" },
+                    descriptionDe: { type: Type.STRING, description: "German product description" },
+                    descriptionEn: { type: Type.STRING, description: "English product description" },
+                    descriptionUk: { type: Type.STRING, description: "Ukrainian product description" },
+                    descriptionFa: { type: Type.STRING, description: "Persian product description" },
+                  },
+                  required: ["nameDe", "nameEn", "nameUk", "nameFa", "descriptionDe", "descriptionEn", "descriptionUk", "descriptionFa"],
+                },
+              },
+            });
+
+            text = response.text?.trim() || "";
+            if (text) {
+              break;
+            }
+          } catch (err: any) {
+            lastError = err;
+            console.warn(`[Translation] Model ${modelName} attempt ${attempt + 1} error:`, err?.message || err);
+            // If it's not a transient 503/429/404, stop retrying this model
+            const isTransient = err?.message?.includes("503") || err?.message?.includes("429") || err?.message?.includes("UNAVAILABLE") || err?.message?.includes("RESOURCE_EXHAUSTED");
+            if (!isTransient && attempt === 0) {
+              break; // Try next model immediately
+            }
+          }
+        }
+
+        if (text) {
+          break;
+        }
+      }
+
+      if (!text) {
+        console.error("All translation models failed. Last error:", lastError);
+        const errMsg = lastError?.message || "";
+        if (errMsg.includes("503") || errMsg.includes("UNAVAILABLE") || errMsg.includes("high demand")) {
+          return res.status(503).json({
+            error: "خدمة الذكاء الاصطناعي تشهد ضغطاً مؤقتاً في الوقت الحالي. يرجى المحاولة مرة أخرى بعد لحظات."
+          });
+        }
+        return res.status(500).json({
+          error: "تعذر توليد الترجمة حالياً، يرجى المحاولة بعد قليل أو إدخال النصوص يدوياً."
+        });
+      }
+
       const result = JSON.parse(text);
       return res.json(result);
     } catch (error: any) {
       console.error("Translation server error:", error);
       return res.status(500).json({
-        error: error?.message || "فشل الاتصال بخدمة الترجمة التلقائية"
+        error: "فشل في معالجة بيانات الترجمة، يرجى المحاولة مرة أخرى."
       });
     }
   });
 
-  // Push Notification Dispatch API (Handles real server-side FCM push to Admin, Driver, or Customer)
+  // Single-request AI Announcement Translation Endpoint (Arabic -> German, English, Ukrainian, Persian)
+  app.post("/api/translate-announcement", async (req, res) => {
+    try {
+      const { textAr } = req.body;
+      if (!textAr || typeof textAr !== "string" || !textAr.trim()) {
+        return res.status(400).json({ error: "نص الإعلان بالعربية مطلوب للترجمة" });
+      }
+
+      const ai = getGeminiClient();
+      const prompt = `You are a professional multilingual localization specialist for 'Barakamarkt24', an authentic Syrian and Middle Eastern grocery store in Germany.
+Translate and localize the following Arabic promotional ticker / announcement text into German (de), English (en), Ukrainian (uk), and Persian/Farsi (fa).
+Preserve any relevant emojis (e.g. 🚚, 🌟, 🏷️, 🔥), keep the text catchy, concise, and natural for an e-commerce ticker banner.
+
+Arabic Announcement: "${textAr.trim()}"
+
+Requirements:
+1. 'textDe': Authentic, natural German supermarket announcement text.
+2. 'textEn': Authentic, natural English supermarket announcement text.
+3. 'textUk': Authentic, natural Ukrainian supermarket announcement text.
+4. 'textFa': Authentic, natural Persian/Farsi supermarket announcement text.
+5. Return clean JSON matching schema.`;
+
+      const candidateModels = ["gemini-3.7-flash", "gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-3.6-flash"];
+      let lastError: any = null;
+      let text = "";
+
+      for (const modelName of candidateModels) {
+        for (let attempt = 0; attempt < 2; attempt++) {
+          try {
+            if (attempt > 0) {
+              await new Promise((resolve) => setTimeout(resolve, 1000));
+            }
+
+            const response = await ai.models.generateContent({
+              model: modelName,
+              contents: prompt,
+              config: {
+                responseMimeType: "application/json",
+                responseSchema: {
+                  type: Type.OBJECT,
+                  properties: {
+                    textDe: { type: Type.STRING, description: "German translation of announcement" },
+                    textEn: { type: Type.STRING, description: "English translation of announcement" },
+                    textUk: { type: Type.STRING, description: "Ukrainian translation of announcement" },
+                    textFa: { type: Type.STRING, description: "Persian translation of announcement" },
+                  },
+                  required: ["textDe", "textEn", "textUk", "textFa"],
+                },
+              },
+            });
+
+            text = response.text?.trim() || "";
+            if (text) {
+              break;
+            }
+          } catch (err: any) {
+            lastError = err;
+            console.warn(`[Announcement Translation] Model ${modelName} attempt ${attempt + 1} error:`, err?.message || err);
+            const isTransient = err?.message?.includes("503") || err?.message?.includes("429") || err?.message?.includes("UNAVAILABLE") || err?.message?.includes("RESOURCE_EXHAUSTED");
+            if (!isTransient && attempt === 0) {
+              break;
+            }
+          }
+        }
+
+        if (text) {
+          break;
+        }
+      }
+
+      if (!text) {
+        console.error("All announcement translation models failed. Last error:", lastError);
+        const errMsg = lastError?.message || "";
+        if (errMsg.includes("503") || errMsg.includes("UNAVAILABLE") || errMsg.includes("high demand")) {
+          return res.status(503).json({
+            error: "خدمة الذكاء الاصطناعي تشهد ضغطاً مؤقتاً في الوقت الحالي. يرجى المحاولة مرة أخرى بعد لحظات."
+          });
+        }
+        return res.status(500).json({
+          error: "تعذر توليد الترجمة حالياً، يرجى المحاولة بعد قليل أو إدخال النصوص يدوياً."
+        });
+      }
+
+      const result = JSON.parse(text);
+      return res.json(result);
+    } catch (error: any) {
+      console.error("Announcement translation server error:", error);
+      return res.status(500).json({
+        error: "فشل في معالجة بيانات الترجمة، يرجى المحاولة مرة أخرى."
+      });
+    }
+  });
+
+  // OneSignal Server Configuration & Helper (Web Push)
+  const getOneSignalConfig = () => {
+    const appId = (process.env.ONESIGNAL_APP_ID || process.env.VITE_ONESIGNAL_APP_ID || "").trim();
+    const restApiKey = (process.env.ONESIGNAL_REST_API_KEY || "").trim();
+    return { appId, restApiKey };
+  };
+
+  interface OneSignalPushOptions {
+    title: string;
+    body: string;
+    userId?: string;
+    role?: string;
+    orderId?: string;
+    type?: string;
+    url?: string;
+    screen?: string;
+    targetRole?: string;
+    couponCode?: string;
+  }
+
+  async function sendOneSignalPush(options: OneSignalPushOptions): Promise<{ success: boolean; id?: string; recipients?: number; error?: string }> {
+    const { appId, restApiKey } = getOneSignalConfig();
+
+    if (!appId || !restApiKey) {
+      console.log(`[OneSignal Server] Push notification notice: ONESIGNAL_APP_ID or ONESIGNAL_REST_API_KEY not configured on server (appId: ${appId ? 'configured' : 'missing'}, key: ${restApiKey ? 'configured' : 'missing'})`);
+      return { success: false, error: "OneSignal credentials not configured" };
+    }
+
+    try {
+      const { title, body, userId, role, orderId, type = "order", url, screen, targetRole, couponCode } = options;
+
+      const launchUrl = url || (role === "admin" ? "/?screen=admin" : role === "driver" ? "/?screen=driver" : orderId ? `/?screen=orders&orderId=${orderId}` : "/");
+
+      const payload: any = {
+        app_id: appId,
+        headings: {
+          en: title,
+          ar: title
+        },
+        contents: {
+          en: body,
+          ar: body
+        },
+        data: {
+          orderId: orderId || "",
+          role: role || "",
+          userId: userId || "",
+          type: type || "order",
+          screen: screen || (role === "admin" ? "admin" : role === "driver" ? "driver" : "orders"),
+          url: launchUrl,
+          couponCode: couponCode || ""
+        },
+        web_url: launchUrl,
+        url: launchUrl
+      };
+
+      // Target Selection:
+      if (role === "admin") {
+        // Target Admins via tag filter
+        payload.filters = [
+          { field: "tag", key: "role", relation: "=", value: "admin" }
+        ];
+      } else if (role === "driver") {
+        if (userId && userId !== "guest" && userId !== "all") {
+          payload.target_channel = "push";
+          payload.include_aliases = {
+            external_id: [userId]
+          };
+          payload.include_external_user_ids = [userId];
+        } else {
+          payload.filters = [
+            { field: "tag", key: "role", relation: "=", value: "driver" }
+          ];
+        }
+      } else if (userId && userId !== "guest" && userId !== "all") {
+        // Target specific Customer by Firebase UID
+        payload.target_channel = "push";
+        payload.include_aliases = {
+          external_id: [userId]
+        };
+        payload.include_external_user_ids = [userId];
+      } else if (targetRole && targetRole !== "all") {
+        payload.filters = [
+          { field: "tag", key: "role", relation: "=", value: targetRole }
+        ];
+      } else {
+        // Broadcast to all subscribed devices
+        payload.included_segments = ["Subscribed Users"];
+      }
+
+      const response = await fetch("https://onesignal.com/api/v1/notifications", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Authorization": `Key ${restApiKey}`
+        },
+        body: JSON.stringify(payload)
+      });
+
+      const resData: any = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        const errDetail = Array.isArray(resData?.errors) ? resData.errors.join(", ") : (resData?.errors || `HTTP ${response.status}`);
+        console.warn(`[OneSignal Server] Push API warning (${response.status}):`, errDetail);
+        return { success: false, error: errDetail };
+      }
+
+      console.log(`[OneSignal Server] Push delivered successfully (id: ${resData?.id}, recipients: ${resData?.recipients || 0})`);
+      return {
+        success: true,
+        id: resData?.id,
+        recipients: resData?.recipients || 0
+      };
+    } catch (err: any) {
+      console.warn("[OneSignal Server] Network exception during Push dispatch:", err?.message || "Connection error");
+      return { success: false, error: err?.message || "Connection error" };
+    }
+  }
+
+  // Push Notification Dispatch API (Handles real server-side OneSignal & FCM push to Admin, Driver, or Customer)
   app.post("/api/send-notification", async (req, res) => {
     try {
-      const { title, body, message, userId, role, orderId, type, url, token, tokens } = req.body;
+      const { title, body, message, userId, role, orderId, type, url, screen, token, tokens } = req.body;
       const notifTitle = (title || "إشعار من بركة ماركت 24").trim();
       const notifBody = (body || message || "").trim();
 
@@ -98,7 +363,7 @@ Requirements:
         return res.status(400).json({ error: "عنوان الإشعار مطلوب" });
       }
 
-      // Deduplication tag check (e.g. avoid duplicate triggers within 10 seconds for the same order)
+      // Deduplication tag check (e.g. avoid duplicate triggers within 15 seconds for the same order)
       const dedupKey = `${orderId || 'general'}_${role || userId || 'all'}_${type || 'order'}`;
       if (orderId && sentNotificationTags.has(dedupKey)) {
         console.log(`[Notification Dispatcher] Skipping duplicate notification for key: ${dedupKey}`);
@@ -110,8 +375,21 @@ Requirements:
         setTimeout(() => sentNotificationTags.delete(dedupKey), 15000);
       }
 
-      console.log(`[Notification Dispatcher] Dispatching FCM push: "${notifTitle}" (orderId: ${orderId || 'none'}, target: ${role || userId || 'all'})`);
+      console.log(`[Notification Dispatcher] Dispatching push: "${notifTitle}" (orderId: ${orderId || 'none'}, target: ${role || userId || 'all'})`);
 
+      // 1. Primary: Dispatch OneSignal Push Notification
+      const oneSignalResult = await sendOneSignalPush({
+        title: notifTitle,
+        body: notifBody,
+        userId,
+        role,
+        orderId,
+        type: type || "order",
+        url,
+        screen
+      });
+
+      // 2. Secondary / Fallback: Attempt FCM v1 if explicit tokens or FCM credentials exist
       const payload: PushNotificationPayload = {
         title: notifTitle,
         body: notifBody,
@@ -123,15 +401,12 @@ Requirements:
       };
 
       let targetTokens: string[] = [];
-
-      // 1. If explicit token or token array passed in body
       if (Array.isArray(tokens) && tokens.length > 0) {
         targetTokens = tokens.filter(t => typeof t === "string" && t.trim().length > 0);
       } else if (token && typeof token === "string" && token.trim().length > 0) {
         targetTokens = [token.trim()];
       }
 
-      // 2. Fetch targeted device tokens from Firestore fcmTokens collection
       const adminFirestore = getAdminFirestore();
       if (adminFirestore && targetTokens.length === 0) {
         try {
@@ -139,10 +414,8 @@ Requirements:
           let snapshot: any;
 
           if (role === "admin") {
-            // Target all admins
             snapshot = await tokensRef.where("role", "==", "admin").where("enabled", "==", true).get();
           } else if (role === "driver") {
-            // Target driver
             if (userId) {
               snapshot = await tokensRef.where("userId", "==", userId).where("enabled", "==", true).get();
             } else {
@@ -150,63 +423,31 @@ Requirements:
             }
           } else if (userId && userId !== "guest" && userId !== "all") {
             snapshot = await tokensRef.where("userId", "==", userId).where("enabled", "==", true).get();
-          } else {
-            // Broadcast or fallback
-            snapshot = await tokensRef.where("enabled", "==", true).limit(50).get();
           }
 
-          const invalidDocIdsToDelete: string[] = [];
-          snapshot.forEach((docSnap: any) => {
-            const data = docSnap.data();
-            if (data?.token && typeof data.token === "string" && data.token.trim()) {
-              // Respect user preferences
-              if (data.enabled === false) return;
-              if (type === 'promo' && data.settings?.offers === false) return;
-              if (type === 'order' && data.settings?.orderUpdates === false) return;
-              targetTokens.push(data.token.trim());
-            }
-          });
-
-          console.log(`[Notification Dispatcher] Found ${targetTokens.length} active device token(s) for target: ${role || userId}`);
+          if (snapshot) {
+            snapshot.forEach((docSnap: any) => {
+              const data = docSnap.data();
+              if (data?.token && typeof data.token === "string" && data.token.trim()) {
+                if (data.enabled === false) return;
+                targetTokens.push(data.token.trim());
+              }
+            });
+          }
         } catch (dbErr) {
-          console.warn("[Notification Dispatcher] Could not query Firestore fcmTokens via Admin SDK:", dbErr);
+          // Non-blocking
         }
       }
 
-      // 3. Send FCM v1 Messages to all discovered tokens
-      let successCount = 0;
-      let failureCount = 0;
-      const invalidTokensToRemove: string[] = [];
-
-      for (const t of Array.from(new Set(targetTokens))) {
-        try {
-          const sendResult = await sendFCMV1Message(t, payload);
-          if (sendResult.success) {
-            successCount++;
-          } else {
-            failureCount++;
-            if (sendResult.invalidToken) {
-              invalidTokensToRemove.push(t);
-            }
+      let fcmSuccessCount = 0;
+      if (targetTokens.length > 0) {
+        for (const t of Array.from(new Set(targetTokens))) {
+          try {
+            const sendResult = await sendFCMV1Message(t, payload);
+            if (sendResult.success) fcmSuccessCount++;
+          } catch {
+            // Non-blocking
           }
-        } catch (pushErr) {
-          failureCount++;
-          console.warn("[Notification Dispatcher] Token push attempt error:", pushErr);
-        }
-      }
-
-      // Clean up invalid or expired tokens in Firestore if found
-      if (adminFirestore && invalidTokensToRemove.length > 0) {
-        try {
-          const batch = adminFirestore.batch();
-          for (const invToken of invalidTokensToRemove) {
-            const tokenDocId = `token_${invToken.slice(-36).replace(/[^a-zA-Z0-9_-]/g, '_')}`;
-            batch.delete(adminFirestore.collection("fcmTokens").doc(tokenDocId));
-          }
-          await batch.commit();
-          console.log(`[Notification Dispatcher] Cleaned up ${invalidTokensToRemove.length} expired FCM token(s)`);
-        } catch (cleanErr) {
-          console.warn("[Notification Dispatcher] Error cleaning up expired tokens:", cleanErr);
         }
       }
 
@@ -214,12 +455,11 @@ Requirements:
         success: true,
         dispatchedAt: new Date().toISOString(),
         recipient: userId || role || "all",
-        tokensCount: targetTokens.length,
-        deliveredCount: successCount,
-        failureCount: failureCount
+        oneSignal: oneSignalResult,
+        fcmCount: fcmSuccessCount
       });
     } catch (error: any) {
-      console.error("Notification dispatch error:", error);
+      console.error("Notification dispatch error:", error?.message || error);
       return res.status(500).json({ error: error?.message || "فشل إرسال الإشعار" });
     }
   });
@@ -234,6 +474,17 @@ Requirements:
 
       console.log(`[Notification Broadcast] Broadcasting "${title}" to target: ${targetRole}`);
 
+      // 1. OneSignal Broadcast
+      const oneSignalResult = await sendOneSignalPush({
+        title: title.trim(),
+        body: message.trim(),
+        targetRole,
+        type: type || "promo",
+        couponCode,
+        url: couponCode ? `/?coupon=${couponCode}` : "/"
+      });
+
+      // 2. FCM Broadcast if configured
       const payload: PushNotificationPayload = {
         title: title.trim(),
         body: message.trim(),
@@ -257,22 +508,21 @@ Requirements:
             const data = docSnap.data();
             if (data?.token && typeof data.token === "string" && data.token.trim()) {
               if (data.enabled === false) return;
-              if (type === 'promo' && data.settings?.offers === false) return;
               targetTokens.push(data.token.trim());
             }
           });
-        } catch (dbErr) {
-          console.warn("[Notification Broadcast] Could not query Firestore tokens:", dbErr);
+        } catch {
+          // Non-blocking
         }
       }
 
-      let successCount = 0;
+      let fcmSuccessCount = 0;
       for (const t of Array.from(new Set(targetTokens))) {
         try {
           const sendResult = await sendFCMV1Message(t, payload);
-          if (sendResult.success) successCount++;
-        } catch (e) {
-          // Ignore individual errors during broadcast
+          if (sendResult.success) fcmSuccessCount++;
+        } catch {
+          // Non-blocking
         }
       }
 
@@ -283,12 +533,12 @@ Requirements:
         title,
         message,
         couponCode: couponCode || null,
-        tokensCount: targetTokens.length,
-        deliveredCount: successCount,
+        oneSignal: oneSignalResult,
+        fcmCount: fcmSuccessCount,
         timestamp: new Date().toISOString()
       });
     } catch (error: any) {
-      console.error("Broadcast dispatch error:", error);
+      console.error("Broadcast dispatch error:", error?.message || error);
       return res.status(500).json({ error: error?.message || "فشل البث الجماعي للإشعار" });
     }
   });

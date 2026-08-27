@@ -37,105 +37,106 @@ import { Order, OrderStatus, CustomerNoteStatus } from '../types';
 import { orderService } from '../services/orderService';
 import { useApp } from '../context/AppContext';
 import { auth } from '../services/firebaseConfig';
+import { getLocalizedProductName } from '../locales';
 
 export const ORDER_STATUS_CONFIG: Record<OrderStatus, { 
-  label: string; 
+  labelKey: string; 
   bg: string; 
   text: string; 
   border: string; 
   badgeBg: string;
   step: number; 
-  desc: string;
+  descKey: string;
 }> = {
   received: {
-    label: 'تم استلام الطلب',
+    labelKey: 'orders.statuses.received',
     bg: 'bg-amber-50',
     text: 'text-amber-800',
     border: 'border-amber-200',
     badgeBg: 'bg-amber-500',
     step: 1,
-    desc: 'تم استلام طلبك بنجاح وهو الآن بانتظار المراجعة والتأكيد من فريق المتجر.'
+    descKey: 'orders.statuses.received'
   },
   pending: {
-    label: 'قيد المراجعة والتأكيد',
+    labelKey: 'orders.statuses.pending',
     bg: 'bg-amber-50',
     text: 'text-amber-800',
     border: 'border-amber-200',
     badgeBg: 'bg-amber-500',
     step: 1,
-    desc: 'تم استلام طلبك وجاري مراجعته وتأكيده مع المتجر.'
+    descKey: 'orders.statuses.pending'
   },
   confirmed: {
-    label: 'تم تأكيد الطلب',
+    labelKey: 'orders.statuses.confirmed',
     bg: 'bg-blue-50',
     text: 'text-blue-800',
     border: 'border-blue-200',
     badgeBg: 'bg-blue-500',
     step: 2,
-    desc: 'تم تأكيد طلبك واعتماد الفاتورة وبدء توجيهها لقسم التجهيز.'
+    descKey: 'orders.statuses.confirmed'
   },
   preparing: {
-    label: 'قيد التجهيز والتغليف',
+    labelKey: 'orders.statuses.preparing',
     bg: 'bg-purple-50',
     text: 'text-purple-800',
     border: 'border-purple-200',
     badgeBg: 'bg-purple-500',
     step: 3,
-    desc: 'جاري اختيار وتغليف منتجات المؤونة بعناية للشحن والتسليم.'
+    descKey: 'orders.statuses.preparing'
   },
   ready_for_pickup: {
-    label: 'جاهز لاستلام المندوب',
+    labelKey: 'orders.statuses.ready_for_pickup',
     bg: 'bg-indigo-50',
     text: 'text-indigo-800',
     border: 'border-indigo-200',
     badgeBg: 'bg-indigo-500',
     step: 3,
-    desc: 'الطلب جاهز في المتجر بانتظار استلام السائق لبدء خط التوصيل.'
+    descKey: 'orders.statuses.ready_for_pickup'
   },
   on_the_way: {
-    label: 'في الطريق إليك 🚚',
+    labelKey: 'orders.statuses.on_the_way',
     bg: 'bg-cyan-50',
     text: 'text-cyan-800',
     border: 'border-cyan-200',
     badgeBg: 'bg-cyan-500',
     step: 4,
-    desc: 'الطلب مع مندوب التوصيل الآن وفي طريقه إلى عنوانك المحدد.'
+    descKey: 'orders.statuses.on_the_way'
   },
   out_for_delivery: {
-    label: 'خرج للتوصيل الآن 🚚',
+    labelKey: 'orders.statuses.on_the_way',
     bg: 'bg-cyan-50',
     text: 'text-cyan-800',
     border: 'border-cyan-200',
     badgeBg: 'bg-cyan-500',
     step: 4,
-    desc: 'مندوب التوصيل في منطقتك وقريب من موقعك لتسليم الطلبية.'
+    descKey: 'orders.statuses.on_the_way'
   },
   delivered: {
-    label: 'تم التسليم بنجاح',
+    labelKey: 'orders.statuses.delivered',
     bg: 'bg-emerald-50',
     text: 'text-emerald-800',
     border: 'border-emerald-200',
     badgeBg: 'bg-emerald-600',
     step: 5,
-    desc: 'تم تسليم الطلب بنجاح. شكراً لتسوقك من بركة ماركت 24!'
+    descKey: 'orders.statuses.delivered'
   },
   delivery_failed: {
-    label: 'تعذر التسليم',
+    labelKey: 'orders.statuses.delivery_failed',
     bg: 'bg-rose-50',
     text: 'text-rose-800',
     border: 'border-rose-200',
     badgeBg: 'bg-rose-500',
     step: 0,
-    desc: 'تعذر تسليم الطلب. يرجى مراجعة تفاصيل العنوان أو التواصل مع الدعم.'
+    descKey: 'orders.statuses.delivery_failed'
   },
   cancelled: {
-    label: 'تم إلغاء الطلب',
+    labelKey: 'orders.statuses.cancelled',
     bg: 'bg-stone-100',
     text: 'text-stone-700',
     border: 'border-stone-200',
     badgeBg: 'bg-stone-400',
     step: 0,
-    desc: 'تم إلغاء هذا الطلب.'
+    descKey: 'orders.statuses.cancelled'
   }
 };
 
@@ -150,23 +151,23 @@ const ACTIVE_STATUSES: OrderStatus[] = [
 ];
 
 const TRACKING_STEPS = [
-  { id: 'received', stepNumber: 1, label: 'استلام الطلب' },
-  { id: 'confirmed', stepNumber: 2, label: 'التأكيد' },
-  { id: 'preparing', stepNumber: 3, label: 'التجهيز' },
-  { id: 'on_the_way', stepNumber: 4, label: 'في الطريق' },
-  { id: 'delivered', stepNumber: 5, label: 'تم التسليم' }
+  { id: 'received', stepNumber: 1, key: 'orders.statuses.received' },
+  { id: 'confirmed', stepNumber: 2, key: 'orders.statuses.confirmed' },
+  { id: 'preparing', stepNumber: 3, key: 'orders.statuses.preparing' },
+  { id: 'on_the_way', stepNumber: 4, key: 'orders.statuses.on_the_way' },
+  { id: 'delivered', stepNumber: 5, key: 'orders.statuses.delivered' }
 ];
 
 const ISSUE_CATEGORIES = [
-  { id: 'broken_item', label: 'المنتج وصل مكسوراً أو تالفاً', icon: '💔' },
-  { id: 'missing_item', label: 'يوجد منتج ناقص في الطلب', icon: '📦' },
-  { id: 'wrong_item', label: 'المنتج المستلم غير صحيح أو مختلف', icon: '🔄' },
-  { id: 'delay', label: 'تأخير في موعد التوصيل', icon: '⏳' },
-  { id: 'general', label: 'ملاحظة عامة / استفسار عن الطلب', icon: '💬' }
+  { id: 'broken_item', labelAr: 'المنتج وصل مكسوراً أو تالفاً', labelEn: 'Damaged or broken item', labelDe: 'Beschädigtes Produkt', icon: '💔' },
+  { id: 'missing_item', labelAr: 'يوجد منتج ناقص في الطلب', labelEn: 'Missing item from order', labelDe: 'Fehlendes Produkt', icon: '📦' },
+  { id: 'wrong_item', labelAr: 'المنتج المستلم غير صحيح أو مختلف', labelEn: 'Wrong or different item received', labelDe: 'Falscher Artikel geliefert', icon: '🔄' },
+  { id: 'delay', labelAr: 'تأخير في موعد التوصيل', labelEn: 'Delivery delay', labelDe: 'Lieferverzögerung', icon: '⏳' },
+  { id: 'general', labelAr: 'ملاحظة عامة / استفسار عن الطلب', labelEn: 'General inquiry / note', labelDe: 'Allgemeine Anfrage', icon: '💬' }
 ];
 
 export const OrdersScreen: React.FC = () => {
-  const { navigateTo, currentUser, isAuthReady, isLoadingAuth, currencySymbol, reorderOrder } = useApp();
+  const { navigateTo, currentUser, isAuthReady, isLoadingAuth, currencySymbol, reorderOrder, language, dir, t } = useApp();
   const [orders, setOrders] = useState<Order[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -310,10 +311,11 @@ export const OrdersScreen: React.FC = () => {
   // Status Badge Component
   const renderStatusBadge = (status: OrderStatus) => {
     const config = ORDER_STATUS_CONFIG[status] || ORDER_STATUS_CONFIG.received;
+    const label = t(config.labelKey) || status;
     return (
       <span className={`${config.bg} ${config.text} ${config.border} text-[11px] font-bold px-2.5 py-1 rounded-full border inline-flex items-center gap-1.5 shadow-2xs`}>
         <span className={`w-1.5 h-1.5 rounded-full ${config.badgeBg}`}></span>
-        <span>{config.label}</span>
+        <span>{label}</span>
       </span>
     );
   };
@@ -328,7 +330,7 @@ export const OrdersScreen: React.FC = () => {
       return (
         <span className="bg-emerald-50 text-emerald-800 border border-emerald-200 text-[10px] font-extrabold px-2.5 py-1 rounded-full inline-flex items-center gap-1 shadow-2xs">
           <CheckCircle className="w-3 h-3 text-emerald-600" />
-          <span>تمت معالجة الملاحظة ✓</span>
+          <span>{language === 'ar' ? 'تمت معالجة الملاحظة ✓' : language === 'de' ? 'Bearbeitet ✓' : 'Resolved ✓'}</span>
         </span>
       );
     }
@@ -337,7 +339,7 @@ export const OrdersScreen: React.FC = () => {
       return (
         <span className="bg-blue-50 text-blue-800 border border-blue-200 text-[10px] font-extrabold px-2.5 py-1 rounded-full inline-flex items-center gap-1 shadow-2xs animate-pulse">
           <MessageSquare className="w-3 h-3 text-blue-600" />
-          <span>تم الرد من الإدارة 💬</span>
+          <span>{language === 'ar' ? 'تم الرد من الإدارة 💬' : language === 'de' ? 'Antwort erhalten 💬' : 'Admin Replied 💬'}</span>
         </span>
       );
     }
@@ -346,40 +348,43 @@ export const OrdersScreen: React.FC = () => {
     return (
       <span className="bg-amber-50 text-amber-900 border border-amber-200 text-[10px] font-extrabold px-2.5 py-1 rounded-full inline-flex items-center gap-1 shadow-2xs">
         <Clock className="w-3 h-3 text-amber-600" />
-        <span>ملاحظة قيد المراجعة ⏳</span>
+        <span>{language === 'ar' ? 'ملاحظة قيد المراجعة ⏳' : language === 'de' ? 'In Prüfung ⏳' : 'In Review ⏳'}</span>
       </span>
     );
   };
 
   // Payment Method & Status Formatter
   const getPaymentDetails = (method?: string, status?: string) => {
-    let methodText = 'الدفع عند الاستلام';
+    let methodText = t('checkout.cashOnDelivery') || 'Barzahlung';
     let icon = <Banknote className="w-3.5 h-3.5 text-stone-500" />;
 
     if (method === 'bank_transfer') {
-      methodText = 'تحويل بنكي';
+      methodText = t('checkout.bankTransfer') || 'Überweisung';
       icon = <Building2 className="w-3.5 h-3.5 text-blue-600" />;
-    } else if (method === 'card') {
-      methodText = 'بطاقة بنكية';
+    } else if (method === 'card' || method === 'stripe') {
+      methodText = t('checkout.stripe') || 'Kartenzahlung';
       icon = <CreditCard className="w-3.5 h-3.5 text-purple-600" />;
+    } else if (method === 'paypal') {
+      methodText = t('checkout.paypal') || 'PayPal';
+      icon = <CreditCard className="w-3.5 h-3.5 text-blue-600" />;
     }
 
     let statusBadge = (
       <span className="text-[10px] font-semibold text-stone-600 bg-stone-100 px-2 py-0.5 rounded-md border border-stone-200">
-        قيد الدفع
+        {language === 'ar' ? 'قيد الدفع' : 'Offen'}
       </span>
     );
 
     if (status === 'paid') {
       statusBadge = (
         <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md border border-emerald-200">
-          مدفوع ✓
+          {language === 'ar' ? 'مدفوع ✓' : 'Bezahlt ✓'}
         </span>
       );
     } else if (status === 'awaiting_transfer') {
       statusBadge = (
         <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
-          بانتظار التحويل
+          {language === 'ar' ? 'بانتظار التحويل' : 'Warte auf Überweisung'}
         </span>
       );
     }
@@ -412,7 +417,8 @@ export const OrdersScreen: React.FC = () => {
     if (order.timestamp) {
       try {
         const d = new Date(order.timestamp);
-        return d.toLocaleDateString('ar-SY', {
+        const localeCode = language === 'ar' ? 'ar-SY' : language === 'de' ? 'de-DE' : language === 'uk' ? 'uk-UA' : language === 'fa' ? 'fa-IR' : 'en-US';
+        return d.toLocaleDateString(localeCode, {
           month: 'short',
           day: 'numeric',
           hour: '2-digit',
@@ -428,7 +434,7 @@ export const OrdersScreen: React.FC = () => {
   // While restoring auth session
   if (!isAuthReady || isLoadingAuth) {
     return (
-      <div className="p-4 space-y-4 pb-24 max-w-3xl mx-auto" dir="rtl">
+      <div className="p-4 space-y-4 pb-24 max-w-3xl mx-auto" dir={dir}>
         <div className="flex items-center justify-between">
           <div className="h-7 w-36 bg-stone-200 rounded-xl animate-pulse"></div>
           <div className="h-7 w-20 bg-stone-200 rounded-xl animate-pulse"></div>
@@ -452,15 +458,15 @@ export const OrdersScreen: React.FC = () => {
   // If user is not authenticated
   if (!currentUser) {
     return (
-      <div className="p-6 space-y-6 max-w-md mx-auto text-center my-10" dir="rtl">
+      <div className="p-6 space-y-6 max-w-md mx-auto text-center my-10" dir={dir}>
         <div className="w-20 h-20 bg-emerald-50 text-[#005A36] rounded-3xl flex items-center justify-center mx-auto border border-emerald-100 shadow-sm">
           <Package className="w-10 h-10" />
         </div>
 
         <div className="space-y-2">
-          <h2 className="text-xl font-black text-stone-900">سجل طلباتك في بركة ماركت</h2>
+          <h2 className="text-xl font-black text-stone-900">{t('orders.title')}</h2>
           <p className="text-xs text-stone-500 leading-relaxed max-w-xs mx-auto">
-            سجّل الدخول لمتابعة طلباتك الحالية لحظياً، معرفة مراحل التوصيل، الإبلاغ عن أي ملاحظة على طلبك، وإعادة طلب مشترياتك السابقة بضغطة زر.
+            {t('auth.loginSubtitle')}
           </p>
         </div>
 
@@ -469,7 +475,7 @@ export const OrdersScreen: React.FC = () => {
           className="w-full bg-[#005A36] hover:bg-[#00472a] text-white font-bold py-3.5 px-4 rounded-2xl text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer shadow-md active:scale-98 transition-all"
         >
           <LogIn className="w-4 h-4 text-amber-300" />
-          <span>تسجيل الدخول / إنشاء حساب</span>
+          <span>{t('auth.loginBtn')} / {t('auth.registerBtn')}</span>
         </button>
       </div>
     );
@@ -509,7 +515,7 @@ export const OrdersScreen: React.FC = () => {
               {renderNoteStatusBadge(order)}
               {isOrderFromToday(order) && !isPastOrder && (
                 <span className="bg-amber-100 text-amber-900 text-[10px] font-extrabold px-2 py-0.5 rounded-full border border-amber-200">
-                  اليوم
+                  {language === 'ar' ? 'اليوم' : language === 'de' ? 'Heute' : 'Today'}
                 </span>
               )}
             </div>
@@ -520,7 +526,7 @@ export const OrdersScreen: React.FC = () => {
                 <span>{formatOrderTime(order)}</span>
               </span>
               <span>•</span>
-              <span className="font-medium text-stone-700">{totalItemsCount} أصناف</span>
+              <span className="font-medium text-stone-700">{totalItemsCount} {t('orders.itemsCount')}</span>
               <span>•</span>
               <span className="flex items-center gap-1">
                 {paymentInfo.icon}
@@ -531,14 +537,14 @@ export const OrdersScreen: React.FC = () => {
 
           {/* Left/Bottom: Price & Actions */}
           <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-stone-100">
-            <div className="text-right sm:text-left">
+            <div className={dir === 'rtl' ? 'text-right sm:text-left' : 'text-left sm:text-right'}>
               <div className="flex items-center gap-1.5 sm:justify-end">
                 <span className="font-black text-base text-[#005A36] font-sans">
                   {currencySymbol || '€'}{order.total.toFixed(2)}
                 </span>
               </div>
               <div className="flex items-center gap-1 text-[10px] text-stone-400">
-                <span>الحالة:</span>
+                <span>{t('orders.orderStatus')}:</span>
                 {paymentInfo.statusBadge}
               </div>
             </div>
@@ -552,10 +558,9 @@ export const OrdersScreen: React.FC = () => {
                     ? 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-200'
                     : 'bg-stone-50 hover:bg-stone-100 text-stone-700 border-stone-200'
                 }`}
-                title="ملاحظة أو إبلاغ عن مشكلة في هذا الطلب"
               >
                 <MessageSquare className="w-3.5 h-3.5 text-amber-700" />
-                <span className="text-[11px]">{order.customerNote ? 'ملاحظة الطلب' : 'ملاحظة على الطلب'}</span>
+                <span className="text-[11px]">{order.customerNote ? (language === 'ar' ? 'ملاحظة الطلب' : 'Notiz') : (language === 'ar' ? 'ملاحظة على الطلب' : 'Notiz hinzufügen')}</span>
               </button>
 
               {/* Reorder Button */}
@@ -565,10 +570,9 @@ export const OrdersScreen: React.FC = () => {
                   reorderOrder(order);
                 }}
                 className="bg-stone-100 hover:bg-emerald-50 hover:text-[#005A36] text-stone-700 text-xs font-bold px-3 py-2 rounded-xl border border-stone-200 hover:border-emerald-300 flex items-center gap-1.5 cursor-pointer active:scale-95 transition-all shadow-2xs"
-                title="إعادة طلب هذه الأصناف للسلة"
               >
                 <RotateCcw className="w-3.5 h-3.5 text-[#005A36]" />
-                <span className="text-[11px]">إعادة الطلب</span>
+                <span className="text-[11px]">{t('orders.reorder')}</span>
               </button>
 
               <div className="w-8 h-8 rounded-xl bg-stone-100 flex items-center justify-center text-stone-500 shrink-0">
@@ -585,6 +589,7 @@ export const OrdersScreen: React.FC = () => {
               {TRACKING_STEPS.map((step) => {
                 const isReached = currentConfig.step >= step.stepNumber;
                 const isCurrent = currentConfig.step === step.stepNumber;
+                const stepLabel = t(step.key) || step.id;
 
                 return (
                   <div key={step.id} className="flex flex-col items-center gap-1.5">
@@ -599,14 +604,14 @@ export const OrdersScreen: React.FC = () => {
                     >
                       {isReached ? <Check className="w-3 h-3 stroke-[3]" /> : step.stepNumber}
                     </div>
-                    <span className={`text-[10px] leading-tight ${
+                    <span className={`text-[10px] leading-tight truncate max-w-full ${
                       isCurrent 
                         ? 'text-[#005A36] font-black' 
                         : isReached 
                           ? 'text-stone-800' 
                           : 'text-stone-400'
                     }`}>
-                      {step.label}
+                      {stepLabel}
                     </span>
                   </div>
                 );
@@ -616,7 +621,7 @@ export const OrdersScreen: React.FC = () => {
         ) : (
           <div className="px-4 py-2.5 bg-stone-50 border-t border-stone-100 text-xs text-stone-600 font-semibold flex items-center gap-2">
             <XCircle className="w-4 h-4 text-rose-600 shrink-0" />
-            <span>{currentConfig.desc}</span>
+            <span>{t(currentConfig.descKey) || order.status}</span>
           </div>
         )}
 
@@ -628,8 +633,8 @@ export const OrdersScreen: React.FC = () => {
             <div className="bg-white p-3.5 rounded-2xl border border-stone-200/80 text-xs text-stone-700 flex items-start gap-2.5 shadow-2xs">
               <Sparkles className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
               <div>
-                <span className="font-bold text-stone-900 block mb-0.5">تفاصيل مرحلة الشحنة:</span>
-                <p className="text-stone-600 leading-relaxed">{currentConfig.desc}</p>
+                <span className="font-bold text-stone-900 block mb-0.5">{t('orders.orderDetails')}:</span>
+                <p className="text-stone-600 leading-relaxed">{t(currentConfig.descKey) || order.status}</p>
               </div>
             </div>
 
@@ -639,7 +644,7 @@ export const OrdersScreen: React.FC = () => {
                 <div className="flex items-center justify-between border-b border-stone-100 pb-2">
                   <span className="font-bold text-xs text-stone-900 flex items-center gap-1.5">
                     <MessageSquare className="w-4 h-4 text-amber-600" />
-                    <span>ملاحظتك المسجلة على هذا الطلب:</span>
+                    <span>{language === 'ar' ? 'ملاحظتك المسجلة على هذا الطلب:' : 'Ihre Kundennotiz:'}</span>
                   </span>
                   {renderNoteStatusBadge(order)}
                 </div>
@@ -647,7 +652,10 @@ export const OrdersScreen: React.FC = () => {
                 <div className="bg-amber-50/60 p-3 rounded-xl border border-amber-100 text-stone-800 space-y-1">
                   <div className="flex items-center justify-between text-[10px] text-stone-500">
                     <span className="font-bold text-amber-900">
-                      {ISSUE_CATEGORIES.find(c => c.id === order.customerNoteCategory)?.label || 'ملاحظة العميل'}
+                      {(() => {
+                        const cat = ISSUE_CATEGORIES.find(c => c.id === order.customerNoteCategory);
+                        return language === 'ar' ? (cat?.labelAr || 'ملاحظة العميل') : (cat?.labelDe || cat?.labelEn || 'Notiz');
+                      })()}
                     </span>
                     <span>{order.customerNoteCreatedAt || order.customerNoteUpdatedAt}</span>
                   </div>
@@ -660,7 +668,7 @@ export const OrdersScreen: React.FC = () => {
                     <div className="flex items-center justify-between text-[11px] text-blue-900 font-bold">
                       <span className="flex items-center gap-1">
                         <CheckCircle2 className="w-3.5 h-3.5 text-blue-700" />
-                        <span>رد إدارة بركة ماركت:</span>
+                        <span>{language === 'ar' ? 'رد إدارة بركة ماركت:' : 'Antwort vom Kundenservice:'}</span>
                       </span>
                       <span className="text-[10px] text-blue-700 font-sans font-normal">{order.adminReplyCreatedAt}</span>
                     </div>
@@ -671,7 +679,7 @@ export const OrdersScreen: React.FC = () => {
                 ) : (
                   <div className="text-[11px] text-amber-800 bg-amber-50/40 p-2.5 rounded-xl flex items-center gap-2">
                     <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                    <span>ملاحظتك قيد المراجعة من فريق خدمة العملاء وسيتم الرد عليك هنا قريباً.</span>
+                    <span>{language === 'ar' ? 'ملاحظتك قيد المراجعة وسيتم الرد عليك قريباً.' : 'Ihre Nachricht wird geprüft.'}</span>
                   </div>
                 )}
 
@@ -681,48 +689,8 @@ export const OrdersScreen: React.FC = () => {
                     className="text-[11px] text-amber-900 hover:text-amber-950 font-bold flex items-center gap-1 cursor-pointer"
                   >
                     <FileEdit className="w-3.5 h-3.5" />
-                    <span>تعديل الملاحظة أو إضافة توضيح</span>
+                    <span>{language === 'ar' ? 'تعديل الملاحظة' : 'Notiz bearbeiten'}</span>
                   </button>
-                </div>
-              </div>
-            )}
-
-            {/* If no note, subtle button to write a note */}
-            {!order.customerNote && (
-              <div className="bg-white p-3.5 rounded-2xl border border-stone-200/80 flex items-center justify-between gap-3 shadow-2xs">
-                <div className="flex items-center gap-2">
-                  <HelpCircle className="w-4 h-4 text-stone-400 shrink-0" />
-                  <span className="text-xs text-stone-600">هل واجهت مشكلة أو لديك ملاحظة على هذا الطلب؟</span>
-                </div>
-                <button
-                  onClick={() => handleOpenNoteModal(order)}
-                  className="bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold px-3 py-1.5 rounded-xl cursor-pointer transition-colors shrink-0 shadow-2xs"
-                >
-                  كتابة ملاحظة / إبلاغ
-                </button>
-              </div>
-            )}
-
-            {/* Order Timeline History if recorded */}
-            {order.timeline && order.timeline.length > 0 && (
-              <div className="bg-white p-4 rounded-2xl border border-stone-200/80 space-y-3 shadow-2xs">
-                <span className="font-bold text-xs text-stone-900 flex items-center gap-1.5">
-                  <Clock className="w-4 h-4 text-[#005A36]" />
-                  <span>سجل مراحل وتحديثات الطلب (Timeline):</span>
-                </span>
-                <div className="space-y-2.5 pt-1 border-r-2 border-[#005A36]/30 pr-3.5 mr-1">
-                  {order.timeline.map((t, tIdx) => (
-                    <div key={tIdx} className="relative text-xs space-y-0.5">
-                      <span className="w-2.5 h-2.5 rounded-full bg-[#005A36] absolute -right-[19px] top-1"></span>
-                      <div className="flex items-center justify-between gap-2 flex-wrap">
-                        <span className="font-bold text-stone-900">{t.labelAr || t.status}</span>
-                        <span className="text-[10px] text-stone-400 font-sans">{t.timestamp}</span>
-                      </div>
-                      {t.note && (
-                        <p className="text-stone-500 text-[11px] leading-relaxed">{t.note}</p>
-                      )}
-                    </div>
-                  ))}
                 </div>
               </div>
             )}
@@ -731,46 +699,49 @@ export const OrdersScreen: React.FC = () => {
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="font-black text-xs text-stone-900">
-                  المنتجات المشمولة في الطلب ({totalItemsCount} قطعة):
+                  {t('orders.orderItems')} ({totalItemsCount}):
                 </span>
                 {hasMoreItems && (
                   <button 
                     onClick={(e) => toggleItemsExpand(order.id, e)}
                     className="text-[11px] font-bold text-[#005A36] hover:text-[#00472a] cursor-pointer"
                   >
-                    {isShowAllItems ? 'عرض أقل' : `عرض جميع المنتجات (${order.items.length})`}
+                    {isShowAllItems ? (language === 'ar' ? 'عرض أقل' : 'Weniger anzeigen') : `${language === 'ar' ? 'عرض جميع المنتجات' : 'Alle anzeigen'} (${order.items.length})`}
                   </button>
                 )}
               </div>
 
               <div className="space-y-2">
-                {displayedItems.map((item, idx) => (
-                  <div 
-                    key={idx} 
-                    className="flex justify-between items-center bg-white p-3 rounded-2xl border border-stone-200/70 text-xs gap-3 shadow-2xs"
-                  >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <img 
-                        src={item.product.image || 'https://images.unsplash.com/photo-1552767059-ce182ead6c1b?auto=format&fit=crop&w=150&q=80'} 
-                        alt={item.product.nameAr}
-                        className="w-11 h-11 rounded-xl object-cover border border-stone-100 shrink-0 bg-stone-50" 
-                        referrerPolicy="no-referrer"
-                      />
-                      <div className="min-w-0">
-                        <span className="font-bold text-stone-900 block truncate">
-                          {item.product.nameAr || item.product.name}
-                        </span>
-                        <span className="text-[11px] text-stone-500 font-medium">
-                          {item.quantity} × {currencySymbol || '€'}{item.product.price.toFixed(2)} {item.product.unit ? `(${item.product.unit})` : ''}
-                        </span>
+                {displayedItems.map((item, idx) => {
+                  const localizedTitle = getLocalizedProductName(item.product, language);
+                  return (
+                    <div 
+                      key={idx} 
+                      className="flex justify-between items-center bg-white p-3 rounded-2xl border border-stone-200/70 text-xs gap-3 shadow-2xs"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <img 
+                          src={item.product.image || 'https://images.unsplash.com/photo-1552767059-ce182ead6c1b?auto=format&fit=crop&w=150&q=80'} 
+                          alt={localizedTitle}
+                          className="w-11 h-11 rounded-xl object-cover border border-stone-100 shrink-0 bg-stone-50" 
+                          referrerPolicy="no-referrer"
+                        />
+                        <div className="min-w-0">
+                          <span className="font-bold text-stone-900 block truncate">
+                            {localizedTitle}
+                          </span>
+                          <span className="text-[11px] text-stone-500 font-medium">
+                            {item.quantity} × {currencySymbol || '€'}{item.product.price.toFixed(2)} {item.product.unit ? `(${item.product.unit})` : ''}
+                          </span>
+                        </div>
                       </div>
-                    </div>
 
-                    <span className="font-black text-[#005A36] font-sans shrink-0 text-xs sm:text-sm">
-                      {currencySymbol || '€'}{(item.product.price * item.quantity).toFixed(2)}
-                    </span>
-                  </div>
-                ))}
+                      <span className="font-black text-[#005A36] font-sans shrink-0 text-xs sm:text-sm">
+                        {currencySymbol || '€'}{(item.product.price * item.quantity).toFixed(2)}
+                      </span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
 
@@ -779,15 +750,15 @@ export const OrdersScreen: React.FC = () => {
               <div className="flex items-center justify-between border-b border-stone-100 pb-2">
                 <span className="font-bold text-stone-900 flex items-center gap-1.5">
                   <UserIcon className="w-3.5 h-3.5 text-stone-400" />
-                  <span>اسم المستلم:</span>
+                  <span>{t('checkout.fullName')}:</span>
                 </span>
-                <span className="font-bold text-stone-800">{order.customerName || 'عميل المتجر'}</span>
+                <span className="font-bold text-stone-800">{order.customerName || 'Customer'}</span>
               </div>
 
               <div className="flex items-center justify-between border-b border-stone-100 pb-2">
                 <span className="font-bold text-stone-900 flex items-center gap-1.5">
                   <Phone className="w-3.5 h-3.5 text-stone-400" />
-                  <span>رقم الهاتف للتواصل:</span>
+                  <span>{t('checkout.phone')}:</span>
                 </span>
                 <span className="font-sans font-bold text-stone-800 text-left">{order.phone}</span>
               </div>
@@ -795,7 +766,7 @@ export const OrdersScreen: React.FC = () => {
               <div className="flex items-start justify-between border-b border-stone-100 pb-2">
                 <span className="font-bold text-stone-900 flex items-center gap-1.5 shrink-0">
                   <MapPin className="w-3.5 h-3.5 text-[#005A36] mt-0.5" />
-                  <span>عنوان التوصيل:</span>
+                  <span>{t('checkout.deliveryAddress')}:</span>
                 </span>
                 <div className="text-left text-stone-800 font-medium max-w-[65%] space-y-0.5">
                   <p className="font-bold text-stone-900">
@@ -804,12 +775,12 @@ export const OrdersScreen: React.FC = () => {
                   {order.bellName && (
                     <p className="text-[11px] text-amber-900 font-medium flex items-center gap-1">
                       <Bell className="w-3 h-3 text-amber-600 shrink-0" />
-                      <span>الجرس: {order.bellName}</span>
+                      <span>{t('checkout.bellName')}: {order.bellName}</span>
                     </p>
                   )}
                   {(order.floor || order.apartment) && (
                     <p className="text-[10px] text-stone-500">
-                      {order.floor && `الطابق: ${order.floor}`} {order.apartment && ` | الشقة: ${order.apartment}`}
+                      {order.floor && `${t('checkout.floor')}: ${order.floor}`} {order.apartment && ` | ${t('checkout.apartment')}: ${order.apartment}`}
                     </p>
                   )}
                 </div>
@@ -818,7 +789,7 @@ export const OrdersScreen: React.FC = () => {
               <div className="flex items-center justify-between">
                 <span className="font-bold text-stone-900 flex items-center gap-1.5">
                   <Receipt className="w-3.5 h-3.5 text-stone-400" />
-                  <span>طريقة وحالة الدفع:</span>
+                  <span>{t('orders.paymentMethod')}:</span>
                 </span>
                 <div className="flex items-center gap-2">
                   <span className="font-bold text-stone-800 bg-stone-100 px-2.5 py-1 rounded-lg border border-stone-200 text-[11px]">
@@ -830,7 +801,7 @@ export const OrdersScreen: React.FC = () => {
 
               {order.notes && (
                 <div className="pt-2 border-t border-stone-100 text-[11px] text-stone-500">
-                  <span className="font-bold text-stone-700">ملاحظات التوصيل: </span>
+                  <span className="font-bold text-stone-700">{t('checkout.deliveryNotes')}: </span>
                   <span>{order.notes}</span>
                 </div>
               )}
@@ -839,15 +810,15 @@ export const OrdersScreen: React.FC = () => {
             {/* Financial Summary */}
             <div className="bg-white p-4 rounded-2xl border border-stone-200/80 text-xs space-y-2 shadow-2xs">
               <div className="flex justify-between text-stone-600">
-                <span>المجموع الفرعي للمنتجات:</span>
+                <span>{t('cart.subtotal')}:</span>
                 <span className="font-sans font-bold text-stone-900">{currencySymbol || '€'}{order.subtotal.toFixed(2)}</span>
               </div>
               
               <div className="flex justify-between text-stone-600">
-                <span>رسوم التوصيل:</span>
+                <span>{t('cart.deliveryFee')}:</span>
                 <span className="font-sans font-bold">
                   {order.deliveryFee === 0 ? (
-                    <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md font-bold text-[10px]">مجاني</span>
+                    <span className="text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded-md font-bold text-[10px]">{t('cart.freeDelivery')}</span>
                   ) : (
                     `${currencySymbol || '€'}${order.deliveryFee?.toFixed(2)}`
                   )}
@@ -856,13 +827,13 @@ export const OrdersScreen: React.FC = () => {
 
               {order.discount && order.discount > 0 ? (
                 <div className="flex justify-between text-emerald-700 font-bold">
-                  <span>الخصم المطبق:</span>
+                  <span>{t('cart.discount')}:</span>
                   <span className="font-sans">-{currencySymbol || '€'}{order.discount.toFixed(2)}</span>
                 </div>
               ) : null}
 
               <div className="pt-2.5 border-t border-stone-100 flex justify-between font-black text-stone-900 text-sm">
-                <span>المبلغ الإجمالي النهائي:</span>
+                <span>{t('cart.total')}:</span>
                 <span className="font-sans text-[#005A36] text-base">{currencySymbol || '€'}{order.total.toFixed(2)}</span>
               </div>
             </div>
@@ -874,7 +845,7 @@ export const OrdersScreen: React.FC = () => {
                 className="flex-1 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 text-xs font-bold py-3.5 rounded-2xl flex items-center justify-center gap-2 cursor-pointer shadow-2xs active:scale-98 transition-all"
               >
                 <MessageSquare className="w-4 h-4 text-amber-700" />
-                <span>{order.customerNote ? 'مراجعة / تعديل الملاحظة' : 'كتابة ملاحظة على الطلب'}</span>
+                <span>{order.customerNote ? (language === 'ar' ? 'مراجعة / تعديل الملاحظة' : 'Notiz prüfen') : (language === 'ar' ? 'كتابة ملاحظة على الطلب' : 'Notiz hinzufügen')}</span>
               </button>
 
               <button
@@ -882,7 +853,7 @@ export const OrdersScreen: React.FC = () => {
                 className="flex-1 bg-[#005A36] hover:bg-[#00472a] text-white text-xs font-bold py-3.5 rounded-2xl flex items-center justify-center gap-2 cursor-pointer shadow-md active:scale-98 transition-all"
               >
                 <RotateCcw className="w-4 h-4 text-amber-300" />
-                <span>إعادة الطلب للسلة</span>
+                <span>{t('orders.reorder')}</span>
               </button>
             </div>
 
@@ -893,27 +864,27 @@ export const OrdersScreen: React.FC = () => {
   };
 
   return (
-    <div className="p-4 sm:p-6 space-y-6 pb-24 max-w-3xl mx-auto" dir="rtl">
+    <div className="p-4 sm:p-6 space-y-6 pb-24 max-w-3xl mx-auto" dir={dir}>
       
       {/* Header Info */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="font-black text-xl text-stone-900 flex items-center gap-2">
             <Package className="w-6 h-6 text-[#005A36]" />
-            <span>طلباتي</span>
+            <span>{t('orders.title')}</span>
           </h1>
           <p className="text-xs text-stone-500 font-medium mt-0.5">
-            متابعة حالة الطلبات النشطة، مراحل التوصيل، وخدمة ما بعد التسليم
+            {t('orders.subtitle')}
           </p>
         </div>
 
         <button
           onClick={fetchOrders}
           className="text-xs text-stone-700 hover:text-stone-900 bg-stone-100 hover:bg-stone-200 px-3 py-2 rounded-xl border border-stone-200 flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
-          title="تحديث قائمة الطلبات"
+          title="Refresh"
         >
           <RotateCcw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin text-[#005A36]' : ''}`} />
-          <span className="font-bold">تحديث</span>
+          <span className="font-bold">{t('common.refresh') || 'Refresh'}</span>
         </button>
       </div>
 
@@ -928,7 +899,7 @@ export const OrdersScreen: React.FC = () => {
             onClick={fetchOrders}
             className="bg-amber-600 hover:bg-amber-700 text-white px-3.5 py-1.5 rounded-xl font-bold text-xs shrink-0 cursor-pointer active:scale-95 transition-all shadow-2xs"
           >
-            إعادة المحاولة
+            {t('common.retry') || 'Retry'}
           </button>
         </div>
       )}
@@ -956,17 +927,17 @@ export const OrdersScreen: React.FC = () => {
             <ShoppingBag className="w-10 h-10" />
           </div>
           <div className="space-y-1.5">
-            <h3 className="font-black text-base text-stone-900">لم تقم بإجراء أي طلبات بعد</h3>
+            <h3 className="font-black text-base text-stone-900">{t('orders.noOrdersTitle')}</h3>
             <p className="text-xs text-stone-500 max-w-xs mx-auto leading-relaxed">
-              عندما تقوم بإتمام طلبك الأول من تشكيلة المنتجات والمؤونة، ستتمكن من تتبع مساره ومراحل توصيله هنا فوراً.
+              {t('orders.noOrdersDesc')}
             </p>
           </div>
           <button
             onClick={() => navigateTo('products')}
             className="bg-[#005A36] hover:bg-[#00472a] text-white text-xs font-bold px-6 py-3.5 rounded-2xl shadow-md cursor-pointer transition-all active:scale-95 inline-flex items-center gap-2"
           >
-            <span>تصفح المنتجات واطلب الآن</span>
-            <ArrowRight className="w-4 h-4 rotate-180" />
+            <span>{t('cart.startShopping')}</span>
+            <ArrowRight className={`w-4 h-4 ${dir === 'rtl' ? 'rotate-180' : ''}`} />
           </button>
         </div>
       )}
@@ -977,11 +948,11 @@ export const OrdersScreen: React.FC = () => {
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className={`w-2.5 h-2.5 rounded-full ${activeOrders.length > 0 ? 'bg-emerald-600 animate-pulse' : 'bg-stone-300'}`}></span>
-              <h2 className="font-black text-base text-stone-900">الطلبات الحالية</h2>
+              <h2 className="font-black text-base text-stone-900">{language === 'ar' ? 'الطلبات الحالية' : language === 'de' ? 'Aktuelle Bestellungen' : 'Active Orders'}</h2>
             </div>
             {activeOrders.length > 0 && (
               <span className="text-[11px] font-bold text-[#005A36] bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
-                {activeOrders.length} طلب قيد التنفيذ
+                {activeOrders.length} {language === 'ar' ? 'طلب قيد التنفيذ' : 'in Bearbeitung'}
               </span>
             )}
           </div>
@@ -991,16 +962,16 @@ export const OrdersScreen: React.FC = () => {
               {activeOrders.map((order) => renderOrderCard(order, false))}
             </div>
           ) : (
-            /* When no active orders exist, show clean friendly box as requested */
+            /* When no active orders exist */
             orders.length > 0 && (
               <div className="bg-white rounded-3xl p-6 border border-stone-200/80 shadow-2xs text-center space-y-3">
                 <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-[#005A36] flex items-center justify-center mx-auto border border-emerald-100">
                   <CheckCircle2 className="w-6 h-6" />
                 </div>
                 <div className="space-y-1">
-                  <h3 className="font-bold text-sm text-stone-900">لا توجد طلبات قيد التنفيذ حالياً</h3>
+                  <h3 className="font-bold text-sm text-stone-900">{language === 'ar' ? 'لا توجد طلبات قيد التنفيذ حالياً' : 'Keine aktiven Bestellungen'}</h3>
                   <p className="text-xs text-stone-500 max-w-sm mx-auto leading-relaxed">
-                    جميع طلباتك السابقة تم تسليمها بنجاح. يمكنك استعراضها أدناه أو تقديم طلب جديد في أي وقت.
+                    {language === 'ar' ? 'جميع طلباتك السابقة تم تسليمها بنجاح. يمكنك استعراضها أدناه أو تقديم طلب جديد في أي وقت.' : 'Alle Ihre vorherigen Bestellungen wurden abgeschlossen.'}
                   </p>
                 </div>
 
@@ -1011,7 +982,7 @@ export const OrdersScreen: React.FC = () => {
                       className="bg-stone-100 hover:bg-stone-200 text-stone-800 text-xs font-bold px-4 py-2.5 rounded-xl border border-stone-200 flex items-center gap-1.5 cursor-pointer transition-colors shadow-2xs"
                     >
                       <History className="w-4 h-4 text-stone-600" />
-                      <span>عرض الطلبات التي تم تسليمها ({pastOrders.length})</span>
+                      <span>{language === 'ar' ? `عرض الطلبات التي تم تسليمها (${pastOrders.length})` : `Abgeschlossene Bestellungen (${pastOrders.length})`}</span>
                     </button>
                   )}
                   <button
@@ -1019,7 +990,7 @@ export const OrdersScreen: React.FC = () => {
                     className="bg-[#005A36] hover:bg-[#00472a] text-white text-xs font-bold px-4 py-2.5 rounded-xl shadow-md flex items-center gap-1.5 cursor-pointer transition-all active:scale-95"
                   >
                     <ShoppingBag className="w-4 h-4 text-amber-300" />
-                    <span>تسوق الآن</span>
+                    <span>{t('cart.startShopping')}</span>
                   </button>
                 </div>
               </div>
@@ -1028,7 +999,7 @@ export const OrdersScreen: React.FC = () => {
         </div>
       )}
 
-      {/* 2. Delivered / Completed Orders Section (Clean & Collapsible, Hidden by default) */}
+      {/* 2. Delivered / Completed Orders Section */}
       {!isLoading && pastOrders.length > 0 && (
         <div className="space-y-3 pt-2">
           <div 
@@ -1040,13 +1011,13 @@ export const OrdersScreen: React.FC = () => {
                 <History className="w-4 h-4" />
               </div>
               <div>
-                <h2 className="font-black text-xs sm:text-sm text-stone-800">الطلبات التي تم تسليمها</h2>
-                <span className="text-[11px] text-stone-500 font-medium">سجل فواتيرك ومشترياتك السابقة ({pastOrders.length} طلب)</span>
+                <h2 className="font-black text-xs sm:text-sm text-stone-800">{language === 'ar' ? 'الطلبات التي تم تسليمها' : 'Abgeschlossene Bestellungen'}</h2>
+                <span className="text-[11px] text-stone-500 font-medium">({pastOrders.length})</span>
               </div>
             </div>
             
             <div className="flex items-center gap-1.5 text-xs text-stone-600 font-bold bg-white px-3 py-1.5 rounded-xl border border-stone-200 shadow-2xs">
-              <span>{isPastOrdersOpen ? 'إخفاء القسم' : 'عرض السجل'}</span>
+              <span>{isPastOrdersOpen ? (language === 'ar' ? 'إخفاء' : 'Ausblenden') : (language === 'ar' ? 'عرض السجل' : 'Anzeigen')}</span>
               {isPastOrdersOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
             </div>
           </div>
@@ -1065,7 +1036,7 @@ export const OrdersScreen: React.FC = () => {
           <div 
             className="bg-white rounded-3xl max-w-lg w-full p-5 sm:p-6 space-y-4 shadow-2xl border border-stone-200 animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
-            dir="rtl"
+            dir={dir}
           >
             {/* Modal Header */}
             <div className="flex items-center justify-between border-b border-stone-100 pb-3">
@@ -1074,8 +1045,9 @@ export const OrdersScreen: React.FC = () => {
                   <MessageSquare className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="font-black text-sm text-stone-900">ملاحظة على الطلب #{activeNoteOrder.orderId || activeNoteOrder.id}</h3>
-                  <p className="text-[11px] text-stone-500">خدمة ما بعد التسليم ومتابعة الملاحظات مع الإدارة</p>
+                  <h3 className="font-black text-sm text-stone-900">
+                    {language === 'ar' ? `ملاحظة على الطلب #${activeNoteOrder.orderId || activeNoteOrder.id}` : `Bestellnotiz #${activeNoteOrder.orderId || activeNoteOrder.id}`}
+                  </h3>
                 </div>
               </div>
 
@@ -1103,7 +1075,7 @@ export const OrdersScreen: React.FC = () => {
             {/* If admin already replied, show the reply context */}
             {activeNoteOrder.adminReply && (
               <div className="bg-blue-50/80 p-3.5 rounded-2xl border border-blue-200 text-xs space-y-1">
-                <span className="font-bold text-blue-900 block">آخر رد من إدارة المتجر:</span>
+                <span className="font-bold text-blue-900 block">{language === 'ar' ? 'آخر رد من إدارة المتجر:' : 'Antwort vom Kundenservice:'}</span>
                 <p className="text-blue-950 bg-white p-2.5 rounded-xl border border-blue-100 leading-relaxed font-medium">
                   {activeNoteOrder.adminReply}
                 </p>
@@ -1115,42 +1087,40 @@ export const OrdersScreen: React.FC = () => {
               
               {/* Category Selector */}
               <div className="space-y-1.5">
-                <label className="font-bold text-xs text-stone-800 block">نوع الملاحظة أو المشكلة:</label>
+                <label className="font-bold text-xs text-stone-800 block">{language === 'ar' ? 'نوع الملاحظة أو المشكلة:' : 'Grund / Kategorie:'}</label>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                  {ISSUE_CATEGORIES.map(cat => (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      onClick={() => setNoteCategory(cat.id)}
-                      className={`text-right p-2.5 rounded-xl border text-xs font-bold flex items-center gap-2 cursor-pointer transition-all ${
-                        noteCategory === cat.id
-                          ? 'bg-amber-50 border-amber-300 text-amber-950 ring-2 ring-amber-400/20 shadow-2xs'
-                          : 'bg-stone-50 hover:bg-stone-100 border-stone-200 text-stone-700'
-                      }`}
-                    >
-                      <span className="text-sm">{cat.icon}</span>
-                      <span className="truncate">{cat.label}</span>
-                    </button>
-                  ))}
+                  {ISSUE_CATEGORIES.map(cat => {
+                    const catLabel = language === 'ar' ? cat.labelAr : language === 'de' ? cat.labelDe : cat.labelEn;
+                    return (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        onClick={() => setNoteCategory(cat.id)}
+                        className={`text-start p-2.5 rounded-xl border text-xs font-bold flex items-center gap-2 cursor-pointer transition-all ${
+                          noteCategory === cat.id
+                            ? 'bg-amber-50 border-amber-300 text-amber-950 ring-2 ring-amber-400/20 shadow-2xs'
+                            : 'bg-stone-50 hover:bg-stone-100 border-stone-200 text-stone-700'
+                        }`}
+                      >
+                        <span className="text-sm">{cat.icon}</span>
+                        <span className="truncate">{catLabel}</span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
               {/* Note Textarea */}
               <div className="space-y-1.5">
-                <label className="font-bold text-xs text-stone-800 block">تفاصيل الملاحظة:</label>
+                <label className="font-bold text-xs text-stone-800 block">{language === 'ar' ? 'تفاصيل الملاحظة:' : 'Beschreibung:'}</label>
                 <textarea
                   rows={4}
                   value={noteText}
                   onChange={(e) => setNoteText(e.target.value)}
-                  placeholder="اكتب هنا تفاصيل المشكلة (مثال: وصل برطمان المكدوس مكسوراً أثناء النقل، أو الصنف كذا ناقص)..."
+                  placeholder={language === 'ar' ? 'اكتب هنا تفاصيل المشكلة أو استفسارك...' : 'Beschreiben Sie Ihr Anliegen hier...'}
                   className="w-full bg-stone-50 border border-stone-200 rounded-2xl p-3.5 text-xs text-stone-900 focus:bg-white focus:border-[#005A36] focus:ring-2 focus:ring-[#005A36]/10 outline-hidden resize-none leading-relaxed transition-all placeholder:text-stone-400"
                   required
                 />
-              </div>
-
-              {/* Info Text */}
-              <div className="bg-stone-50 p-3 rounded-xl border border-stone-200/60 text-[11px] text-stone-500 leading-relaxed">
-                💡 سيتم إشعار إدارة المتجر بملاحظتك فوراً، وسيقوم فريق خدمة العملاء بالتواصل معك ومعالجة المشكلة أو التعويض المناسب.
               </div>
 
               {/* Modal Actions */}
@@ -1160,7 +1130,7 @@ export const OrdersScreen: React.FC = () => {
                   onClick={() => setActiveNoteOrder(null)}
                   className="flex-1 bg-stone-100 hover:bg-stone-200 text-stone-700 font-bold py-3 rounded-2xl text-xs cursor-pointer transition-colors"
                 >
-                  إلغاء
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
@@ -1172,7 +1142,7 @@ export const OrdersScreen: React.FC = () => {
                   ) : (
                     <Send className="w-4 h-4 text-amber-300" />
                   )}
-                  <span>إرسال الملاحظة للإدارة</span>
+                  <span>{t('common.save')}</span>
                 </button>
               </div>
 

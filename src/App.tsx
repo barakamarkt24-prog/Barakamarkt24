@@ -6,7 +6,6 @@ import {
   Clock, 
   User as UserIcon, 
   Heart, 
-  ShieldCheck, 
   Truck,
   LogIn
 } from 'lucide-react';
@@ -24,6 +23,7 @@ import { ProfileScreen } from './screens/ProfileScreen';
 import { DriverDashboardScreen } from './screens/DriverDashboardScreen';
 import { LegalScreen } from './screens/LegalScreen';
 import { ProductDetailModal } from './components/ProductDetailModal';
+import { LanguageSelectModal } from './components/common/LanguageSelectModal';
 
 export const App: React.FC = () => {
   const { 
@@ -33,7 +33,13 @@ export const App: React.FC = () => {
     cartCount, 
     wishlist, 
     currentUser, 
-    toast 
+    toast,
+    dir,
+    t,
+    isLanguageModalOpen,
+    isFirstTimeLanguageModalOpen,
+    setIsLanguageModalOpen,
+    setIsFirstTimeLanguageModalOpen
   } = useApp();
 
   const renderScreen = () => {
@@ -69,7 +75,7 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#FDFBF7] text-[#2D1B10] flex flex-col font-sans selection:bg-emerald-800 selection:text-white" dir="rtl">
+    <div className="min-h-screen bg-[#FDFBF7] text-[#2D1B10] flex flex-col font-sans selection:bg-emerald-800 selection:text-white" dir={dir}>
       
       {/* Toast Notification */}
       {toast && (
@@ -94,7 +100,7 @@ export const App: React.FC = () => {
             }`}
           >
             <Home className="w-5 h-5" />
-            <span className="text-[10px]">الرئيسية</span>
+            <span className="text-[10px]">{t('nav.home')}</span>
           </button>
 
           <button
@@ -104,7 +110,7 @@ export const App: React.FC = () => {
             }`}
           >
             <Grid className="w-5 h-5" />
-            <span className="text-[10px]">الأقسام</span>
+            <span className="text-[10px]">{t('nav.categories')}</span>
           </button>
 
           {/* Floating Cart Button */}
@@ -122,7 +128,7 @@ export const App: React.FC = () => {
                 </span>
               )}
             </div>
-            <span className="text-[10px]">السلة</span>
+            <span className="text-[10px]">{t('nav.cart')}</span>
           </button>
 
           <button
@@ -139,7 +145,7 @@ export const App: React.FC = () => {
                 </span>
               )}
             </div>
-            <span className="text-[10px]">المفضلة</span>
+            <span className="text-[10px]">{t('nav.wishlist')}</span>
           </button>
 
           <button
@@ -149,7 +155,7 @@ export const App: React.FC = () => {
             }`}
           >
             <Clock className="w-5 h-5" />
-            <span className="text-[10px]">طلباتي</span>
+            <span className="text-[10px]">{t('nav.orders')}</span>
           </button>
 
           {currentUser?.role === 'driver' ? (
@@ -160,7 +166,7 @@ export const App: React.FC = () => {
               }`}
             >
               <Truck className="w-5 h-5" />
-              <span className="text-[10px]">السائق</span>
+              <span className="text-[10px]">{t('nav.driver')}</span>
             </button>
           ) : currentUser ? (
             <button
@@ -170,7 +176,7 @@ export const App: React.FC = () => {
               }`}
             >
               <UserIcon className="w-5 h-5" />
-              <span className="text-[10px]">حسابي</span>
+              <span className="text-[10px]">{t('nav.profile')}</span>
             </button>
           ) : (
             <button
@@ -180,12 +186,22 @@ export const App: React.FC = () => {
               }`}
             >
               <LogIn className="w-5 h-5" />
-              <span className="text-[10px]">دخول</span>
+              <span className="text-[10px]">{t('auth.loginBtn')}</span>
             </button>
           )}
 
         </nav>
       )}
+
+      {/* Language Select Modal (First-time onboarding & manual change) */}
+      <LanguageSelectModal 
+        isOpen={isLanguageModalOpen || isFirstTimeLanguageModalOpen}
+        onClose={() => {
+          setIsLanguageModalOpen(false);
+          setIsFirstTimeLanguageModalOpen(false);
+        }}
+        isFirstTime={isFirstTimeLanguageModalOpen}
+      />
 
       {/* Product Detail Seamless Modal / Bottom Sheet */}
       <ProductDetailModal />

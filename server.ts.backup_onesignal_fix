@@ -264,8 +264,7 @@ Requirements:
     try {
       const { title, body, userId, role, orderId, type = "order", url, screen, targetRole, couponCode } = options;
 
-      const targetScreen = screen || (role === "admin" ? "admin" : role === "driver" ? "driver" : "orders");
-      const relativeNavUrl = url || (role === "admin" ? "/?screen=admin" : role === "driver" ? "/?screen=driver" : orderId ? `/?screen=orders&orderId=${orderId}` : "/");
+      const launchUrl = url || (role === "admin" ? "/?screen=admin" : role === "driver" ? "/?screen=driver" : orderId ? `/?screen=orders&orderId=${orderId}` : "/");
 
       const payload: any = {
         app_id: appId,
@@ -288,21 +287,18 @@ Requirements:
           role: role || "",
           userId: userId || "",
           type: type || "order",
-          screen: targetScreen,
-          url: relativeNavUrl,
+          screen: screen || (role === "admin" ? "admin" : role === "driver" ? "driver" : "orders"),
+          url: launchUrl,
           couponCode: couponCode || ""
         },
+        web_url: launchUrl,
+        url: launchUrl,
         priority: 10,
         android_visibility: 1,
         android_sound: "default",
         ios_sound: "default",
         android_accent_color: "10B981"
       };
-
-      // Only attach absolute http(s) URLs if explicitly provided as absolute
-      if (url && (url.startsWith("http://") || url.startsWith("https://"))) {
-        payload.web_url = url;
-      }
 
       // Target Selection:
       if (role === "admin") {

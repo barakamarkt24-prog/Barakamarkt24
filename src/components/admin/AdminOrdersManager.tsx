@@ -128,15 +128,15 @@ export const AdminOrdersManager: React.FC<AdminOrdersManagerProps> = ({
     };
   }> = {
     received: {
-      label: 'طلب جديد (تم الاستلام)',
-      shortLabel: 'جديد / استلام',
+      label: 'طلب جديد (قيد المراجعة)',
+      shortLabel: 'جديد',
       badgeCls: 'bg-amber-100 text-amber-950 border-amber-300 font-black animate-pulse',
       accentBorder: 'border-amber-300 bg-amber-50/20 ring-2 ring-amber-400/30',
       icon: Clock,
       nextStep: {
         status: 'confirmed',
-        label: 'تأكيد واعتماد الطلب ✓',
-        note: 'تم تأكيد واعتماد الطلب من قبل الإدارة',
+        label: 'استلام واعتماد الطلب ✓',
+        note: 'تم استلام وتأكيد الطلب من قبل الإدارة',
         cls: 'bg-indigo-700 hover:bg-indigo-800 text-white'
       }
     },
@@ -148,14 +148,14 @@ export const AdminOrdersManager: React.FC<AdminOrdersManagerProps> = ({
       icon: Clock,
       nextStep: {
         status: 'confirmed',
-        label: 'تأكيد واعتماد الطلب ✓',
-        note: 'تم تأكيد واعتماد الطلب من قبل الإدارة',
+        label: 'استلام واعتماد الطلب ✓',
+        note: 'تم استلام وتأكيد الطلب من قبل الإدارة',
         cls: 'bg-indigo-700 hover:bg-indigo-800 text-white'
       }
     },
     confirmed: {
-      label: 'تم التأكيد والموافقة',
-      shortLabel: 'مؤكد',
+      label: 'تم استلام الطلب',
+      shortLabel: 'تم الاستلام',
       badgeCls: 'bg-indigo-50 text-indigo-950 border-indigo-200',
       accentBorder: 'border-indigo-200',
       icon: CheckCircle2,
@@ -1316,7 +1316,7 @@ export const AdminOrdersManager: React.FC<AdminOrdersManagerProps> = ({
       {/* ======================================================== */}
       {/* 2. KPI STATUS CARDS (NEW ORDERS ALWAYS AT TOP)          */}
       {/* ======================================================== */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2.5">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-7 gap-2.5">
         {/* 1. NEW ORDERS BUTTON - HIGH PRIORITY FIRST */}
         <button
           type="button"
@@ -1336,7 +1336,23 @@ export const AdminOrdersManager: React.FC<AdminOrdersManagerProps> = ({
           <span className="font-mono text-xl font-black">{counts.received}</span>
         </button>
 
-        {/* 2. CUSTOMER COMPLAINTS / NOTES BUTTON */}
+        {/* 2. ORDER RECEIVED / CONFIRMED BUTTON */}
+        <button
+          type="button"
+          onClick={() => setActiveTabFilter('confirmed')}
+          className={`p-3.5 rounded-2xl border text-center transition-all cursor-pointer relative ${
+            activeTabFilter === 'confirmed'
+              ? 'bg-indigo-700 text-white border-indigo-700 shadow-xs font-black'
+              : counts.confirmed > 0
+              ? 'bg-indigo-50/80 text-indigo-950 border-indigo-200 hover:border-indigo-300 ring-1 ring-indigo-200'
+              : 'bg-white text-stone-800 border-stone-200/80 hover:border-stone-400'
+          }`}
+        >
+          <span className="text-[11px] block font-medium opacity-80">✅ تم استلام الطلب</span>
+          <span className="font-mono text-xl font-black">{counts.confirmed}</span>
+        </button>
+
+        {/* 3. CUSTOMER COMPLAINTS / NOTES BUTTON */}
         <button
           type="button"
           onClick={() => {
@@ -1360,7 +1376,7 @@ export const AdminOrdersManager: React.FC<AdminOrdersManagerProps> = ({
           </span>
         </button>
 
-        {/* 3. IN PREPARATION BUTTON */}
+        {/* 4. IN PREPARATION BUTTON */}
         <button
           type="button"
           onClick={() => setActiveTabFilter('preparing')}
@@ -1374,7 +1390,7 @@ export const AdminOrdersManager: React.FC<AdminOrdersManagerProps> = ({
           <span className="font-mono text-xl font-black">{counts.preparing}</span>
         </button>
 
-        {/* 4. READY FOR PICKUP BUTTON */}
+        {/* 5. READY FOR PICKUP BUTTON */}
         <button
           type="button"
           onClick={() => setActiveTabFilter('ready_for_pickup')}
@@ -1388,7 +1404,7 @@ export const AdminOrdersManager: React.FC<AdminOrdersManagerProps> = ({
           <span className="font-mono text-xl font-black">{counts.ready}</span>
         </button>
 
-        {/* 5. ON THE WAY BUTTON */}
+        {/* 6. ON THE WAY BUTTON */}
         <button
           type="button"
           onClick={() => setActiveTabFilter('on_the_way')}
@@ -1402,7 +1418,7 @@ export const AdminOrdersManager: React.FC<AdminOrdersManagerProps> = ({
           <span className="font-mono text-xl font-black">{counts.onWay}</span>
         </button>
 
-        {/* 6. ALL ORDERS BUTTON */}
+        {/* 7. ALL ORDERS BUTTON */}
         <button
           type="button"
           onClick={() => setActiveTabFilter('all')}
@@ -1449,8 +1465,8 @@ export const AdminOrdersManager: React.FC<AdminOrdersManagerProps> = ({
             {[
               { id: 'all', label: `الكل (${counts.all})` },
               { id: 'received', label: `⚡ جديد (${counts.received})` },
+              { id: 'confirmed', label: `تم استلام الطلب (${counts.confirmed})` },
               { id: 'notes', label: `💬 شكاوى وملاحظات (${counts.notesNeedsAction > 0 ? `${counts.notesNeedsAction} تحتاج إجراء` : counts.notesAll})` },
-              { id: 'confirmed', label: `مؤكد (${counts.confirmed})` },
               { id: 'preparing', label: `تحضير (${counts.preparing})` },
               { id: 'ready_for_pickup', label: `جاهز للسائق (${counts.ready})` },
               { id: 'on_the_way', label: `في الطريق (${counts.onWay})` },

@@ -141,17 +141,13 @@ class OneSignalService {
         if (user && user.id && user.id !== 'guest') {
           console.log(`[OneSignalService] Syncing Median Native OneSignal: externalId=${user.id}, role=${user.role || 'customer'}`);
           
-          const rawUserId = String(user.id).trim();
-
-          // Official Median OneSignal APIs - Pass raw string Firebase UID
+          // Official Median OneSignal APIs
           if (typeof bridge.onesignal.login === 'function') {
-            try { bridge.onesignal.login(rawUserId); } catch (_) {}
-          }
-          if (bridge.onesignal.externalUserId && typeof bridge.onesignal.externalUserId.set === 'function') {
-            try { bridge.onesignal.externalUserId.set(rawUserId); } catch (_) {}
-          }
-          if (typeof bridge.onesignal.setExternalId === 'function') {
-            try { bridge.onesignal.setExternalId(rawUserId); } catch (_) {}
+            bridge.onesignal.login({ externalId: user.id });
+          } else if (bridge.onesignal.externalUserId && typeof bridge.onesignal.externalUserId.set === 'function') {
+            bridge.onesignal.externalUserId.set({ externalId: user.id });
+          } else if (typeof bridge.onesignal.setExternalId === 'function') {
+            bridge.onesignal.setExternalId({ externalId: user.id });
           }
 
           // Set role and identification tags in Median Native Plugin

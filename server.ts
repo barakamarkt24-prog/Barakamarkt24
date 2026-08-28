@@ -14,10 +14,11 @@ async function startServer() {
   // Global CORS Middleware for all origins and preflight OPTIONS requests
   app.use((req, res, next) => {
     res.header("Access-Control-Allow-Origin", "*");
-    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH");
-    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH, HEAD");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization, Access-Control-Request-Method, Access-Control-Request-Headers");
+    res.header("Access-Control-Max-Age", "86400");
     if (req.method === "OPTIONS") {
-      return res.sendStatus(200);
+      return res.status(200).end();
     }
     next();
   });
@@ -406,7 +407,8 @@ Requirements:
         setTimeout(() => sentNotificationTags.delete(dedupKey), 15000);
       }
 
-      console.log(`[Notification Dispatcher] >>> Received Push Request:`, {
+      const requestOrigin = req.headers.origin || req.headers.referer || "direct / same-origin";
+      console.log(`[Notification Dispatcher] >>> Received Push Request from Origin: [${requestOrigin}], IP: [${req.ip}]:`, {
         notifTitle,
         notifBody,
         role: role || 'none',
@@ -414,7 +416,8 @@ Requirements:
         orderId: orderId || 'none',
         screen: screen || 'none',
         url: url || 'none',
-        type: type || 'order'
+        type: type || 'order',
+        origin: requestOrigin
       });
 
       // 1. Primary: Dispatch OneSignal Push Notification

@@ -1,0 +1,5 @@
+# Netlify API Proxy to Cloud Run Server (Bypasses Browser CORS completely)
+/api/*  https://ais-pre-kien7lgdakhttc26u5uzal-508123128076.europe-west2.run.app/api/:splat  200
+
+# Single Page Application fallback
+/*      /index.html                                                                                 200

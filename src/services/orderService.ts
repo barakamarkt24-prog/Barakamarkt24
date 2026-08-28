@@ -365,20 +365,26 @@ class OrderService {
 
       // Trigger Server-Side Real Push Notification for Admin Devices
       try {
-        fetch('/api/send-notification', {
+        const pushPayload = {
+          role: 'admin',
+          orderId: orderId,
+          title: `طلب جديد #${orderId}`,
+          body: `طلب جديد من ${newOrder.customerName || 'عميل'} بقيمة €${newOrder.total?.toFixed(2) || '0.00'}`,
+          type: 'order',
+          screen: 'admin',
+          url: '/?screen=admin'
+        };
+
+        await fetch('/api/send-notification', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            role: 'admin',
-            orderId: orderId,
-            title: adminNotifTitle,
-            body: adminNotifMessage,
-            type: 'order',
-            url: '/?screen=admin'
-          })
-        }).catch(err => console.warn('[orderService] Server push fetch background notice:', err));
-      } catch (fetchErr) {
-        console.warn('[orderService] Server push fetch execution notice:', fetchErr);
+          body: JSON.stringify(pushPayload),
+          keepalive: true
+        });
+
+        console.log(`[orderService] OneSignal Push sent successfully for Admin - Order #${orderId}`);
+      } catch (pushErr) {
+        console.warn('[orderService] Push notification failed (non-blocking):', pushErr);
       }
 
       if (newOrder.userId && newOrder.userId !== 'guest') {
@@ -685,23 +691,29 @@ class OrderService {
           type: 'order'
         });
 
-        // Trigger real FCM push to driver
+        // Trigger real push to driver
         try {
-          fetch('/api/send-notification', {
+          const driverPushPayload = {
+            userId: driverId,
+            role: 'driver',
+            orderId: orderId,
+            title: `طلب توصيل جديد #${orderId}`,
+            body: `تم تعيين الطلب #${orderId} لك. اضغط لفتح التفاصيل.`,
+            type: 'order',
+            screen: 'driver',
+            url: '/?screen=driver'
+          };
+
+          await fetch('/api/send-notification', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId: driverId,
-              role: 'driver',
-              orderId: orderId,
-              title: driverNotifTitle,
-              body: driverNotifMsg,
-              type: 'order',
-              url: '/?screen=driver'
-            })
-          }).catch(() => {});
-        } catch {
-          // Non-blocking
+            body: JSON.stringify(driverPushPayload),
+            keepalive: true
+          });
+
+          console.log(`[orderService] OneSignal Push sent successfully for Driver ${driverId} - Order #${orderId}`);
+        } catch (driverPushErr) {
+          console.warn('[orderService] Driver push failed (non-blocking):', driverPushErr);
         }
       } catch (notifErr) {
         console.warn('Could not create driver notification:', notifErr);

@@ -15,10 +15,7 @@ import {
 import { db, collections, auth } from './firebaseConfig';
 import { CartItem, Order, OrderItem, OrderStatus, OrderTimelineItem, CustomerNoteStatus } from '../types';
 
-export const NOTIFICATION_API_URL = 
-  typeof window !== 'undefined' && window.location?.origin && window.location.origin.startsWith('http')
-    ? `${window.location.origin}/api/send-notification`
-    : 'https://ais-pre-kien7lgdakhttc26u5uzal-508123128076.europe-west2.run.app/api/send-notification';
+export const NOTIFICATION_API_URL = 'https://ais-pre-kien7lgdakhttc26u5uzal-508123128076.europe-west2.run.app/api/send-notification';
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   received: 'تم استلام الطلب',

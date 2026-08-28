@@ -839,6 +839,8 @@ export const AdminDashboardScreen: React.FC = () => {
         url: targetRole === 'driver' ? '/?screen=driver' : '/?screen=admin'
       };
 
+      console.log(`[AdminDashboard] >>> Testing OneSignal (${targetRole}) using URL:`, NOTIFICATION_API_URL, payload);
+
       const response = await fetch(NOTIFICATION_API_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -846,6 +848,7 @@ export const AdminDashboardScreen: React.FC = () => {
       });
 
       const data = await response.json();
+      console.log(`[AdminDashboard] <<< OneSignal Test Result (HTTP ${response.status}):`, data);
       setOneSignalTestResult({
         timestamp: new Date().toLocaleTimeString('ar-EG'),
         status: response.status,

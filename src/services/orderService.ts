@@ -16,7 +16,7 @@ import { db, collections, auth } from './firebaseConfig';
 import { CartItem, Order, OrderItem, OrderStatus, OrderTimelineItem, CustomerNoteStatus } from '../types';
 
 export const NOTIFICATION_API_URL = 
-  typeof window !== 'undefined' && window.location.hostname.includes('run.app') 
+  typeof window !== 'undefined' && window.location?.origin && window.location.origin.startsWith('http')
     ? `${window.location.origin}/api/send-notification`
     : 'https://ais-pre-kien7lgdakhttc26u5uzal-508123128076.europe-west2.run.app/api/send-notification';
 
@@ -380,16 +380,19 @@ class OrderService {
           url: '/?screen=admin'
         };
 
-        await fetch(NOTIFICATION_API_URL, {
+        console.log(`[orderService] >>> Initiating Admin Push Notification for Order #${orderId} to:`, NOTIFICATION_API_URL, pushPayload);
+
+        const pushResponse = await fetch(NOTIFICATION_API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(pushPayload),
           keepalive: true
         });
 
-        console.log(`[orderService] OneSignal Push sent successfully for Admin - Order #${orderId}`);
-      } catch (pushErr) {
-        console.warn('[orderService] Push notification failed (non-blocking):', pushErr);
+        const pushData = await pushResponse.json().catch(() => ({}));
+        console.log(`[orderService] <<< Admin Push Result (HTTP ${pushResponse.status}) for Order #${orderId}:`, pushData);
+      } catch (pushErr: any) {
+        console.error(`[orderService] !!! Admin Push Failed for Order #${orderId}:`, pushErr?.message || pushErr);
       }
 
       if (newOrder.userId && newOrder.userId !== 'guest') {
@@ -412,7 +415,7 @@ class OrderService {
 
         // Trigger Server-Side Real Push Notification for Customer Device
         try {
-          fetch('/api/send-notification', {
+          fetch(NOTIFICATION_API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -422,7 +425,8 @@ class OrderService {
               body: custNotifMessage,
               type: 'order',
               url: `/?screen=orders&orderId=${orderId}`
-            })
+            }),
+            keepalive: true
           }).catch(() => {});
         } catch {
           // Non-blocking
@@ -709,16 +713,19 @@ class OrderService {
             url: '/?screen=driver'
           };
 
-          await fetch(NOTIFICATION_API_URL, {
+          console.log(`[orderService] >>> Initiating Driver Push for Driver ${driverId} - Order #${orderId} to:`, NOTIFICATION_API_URL, driverPushPayload);
+
+          const driverPushResponse = await fetch(NOTIFICATION_API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(driverPushPayload),
             keepalive: true
           });
 
-          console.log(`[orderService] OneSignal Push sent successfully for Driver ${driverId} - Order #${orderId}`);
-        } catch (driverPushErr) {
-          console.warn('[orderService] Driver push failed (non-blocking):', driverPushErr);
+          const driverPushData = await driverPushResponse.json().catch(() => ({}));
+          console.log(`[orderService] <<< Driver Push Result (HTTP ${driverPushResponse.status}) for Driver ${driverId} - Order #${orderId}:`, driverPushData);
+        } catch (driverPushErr: any) {
+          console.error(`[orderService] !!! Driver push failed for Driver ${driverId} - Order #${orderId}:`, driverPushErr?.message || driverPushErr);
         }
       } catch (notifErr) {
         console.warn('Could not create driver notification:', notifErr);

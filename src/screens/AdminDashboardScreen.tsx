@@ -70,7 +70,7 @@ import {
 import { useApp } from '../context/AppContext';
 import { Product, Order, OrderStatus, Category, Subcategory, User, Coupon, Offer, AppNotification, Referral } from '../types';
 import { productService } from '../services/productService';
-import { orderService } from '../services/orderService';
+import { orderService, NOTIFICATION_API_URL } from '../services/orderService';
 import { adminService, AppSettings } from '../services/adminService';
 import { translateProductContent } from '../services/translationService';
 import { AdminDeliveryManagement } from '../components/admin/AdminDeliveryManagement';
@@ -155,6 +155,8 @@ export const AdminDashboardScreen: React.FC = () => {
   const [notifMessage, setNotifMessage] = useState<string>('');
   const [notifType, setNotifType] = useState<'promo' | 'system' | 'order'>('promo');
   const [isSendingNotif, setIsSendingNotif] = useState<boolean>(false);
+  const [isTestingOneSignal, setIsTestingOneSignal] = useState<boolean>(false);
+  const [oneSignalTestResult, setOneSignalTestResult] = useState<any>(null);
   const [soundAlertsEnabled, setSoundAlertsEnabled] = useState<boolean>(() => {
     try {
       return localStorage.getItem('baraka_admin_sound_alerts') === 'true';
@@ -821,6 +823,53 @@ export const AdminDashboardScreen: React.FC = () => {
       const updated = await adminService.getAllNotifications();
       setNotifications(updated);
       showToast('تم إرسال ونشر الإشعار العام لجميع المستخدمين في Firestore');
+    }
+  };
+
+  const handleTestOneSignal = async (targetRole: 'admin' | 'driver' | 'all') => {
+    setIsTestingOneSignal(true);
+    setOneSignalTestResult(null);
+    try {
+      const payload = {
+        role: targetRole === 'all' ? undefined : targetRole,
+        orderId: `TEST-${Date.now().toString().slice(-4)}`,
+        title: `🔔 اختبار OneSignal (${targetRole === 'admin' ? 'الإدارة' : targetRole === 'driver' ? 'السائق' : 'الكل'})`,
+        body: `هذا إشعار تجريبي مباشر للتأكد من وصول OneSignal Push والتطبيق مغلق [${new Date().toLocaleTimeString('ar-EG')}]`,
+        type: 'system',
+        url: targetRole === 'driver' ? '/?screen=driver' : '/?screen=admin'
+      };
+
+      const response = await fetch(NOTIFICATION_API_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+
+      const data = await response.json();
+      setOneSignalTestResult({
+        timestamp: new Date().toLocaleTimeString('ar-EG'),
+        status: response.status,
+        ok: response.ok,
+        data,
+        targetRole
+      });
+
+      if (data?.oneSignal?.success) {
+        showToast(`✓ تم إرسال الإشعار لـ OneSignal بنجاح (المستلمون: ${data.oneSignal.recipients ?? 0})`);
+      } else {
+        showToast(`تنبيه: رد OneSignal: ${data?.oneSignal?.error || 'راجع التقرير'}`);
+      }
+    } catch (err: any) {
+      setOneSignalTestResult({
+        timestamp: new Date().toLocaleTimeString('ar-EG'),
+        status: 500,
+        ok: false,
+        error: err?.message || 'تعذر الاتصال بالسيرفر',
+        targetRole
+      });
+      showToast(`فشل الفحص: ${err?.message || 'خطأ في الاتصال'}`);
+    } finally {
+      setIsTestingOneSignal(false);
     }
   };
 
@@ -2495,6 +2544,104 @@ export const AdminDashboardScreen: React.FC = () => {
       {/* ========================================================= */}
       {activeTab === 'notifications' && (
         <div className="space-y-4">
+          {/* --- OneSignal Push Diagnostics & Live Testing Card --- */}
+          <div className="bg-gradient-to-br from-stone-900 to-stone-950 text-white p-5 rounded-3xl border border-stone-800 shadow-sm space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                  <BellRing className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-sm text-white flex items-center gap-2">
+                    <span>فحص وتجربة إشعارات OneSignal المباشرة</span>
+                    <span className="bg-emerald-500/20 text-emerald-300 text-[10px] px-2 py-0.5 rounded-full border border-emerald-500/30 font-mono font-bold">Live Push</span>
+                  </h3>
+                  <p className="text-[11px] text-stone-400">اختبر وصول إشعار Push حقيقي لهاتفك أثناء إغلاق التطبيق واطلع على تقرير OneSignal اللحظي</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+              <button
+                type="button"
+                disabled={isTestingOneSignal}
+                onClick={() => handleTestOneSignal('admin')}
+                className="bg-emerald-600 hover:bg-emerald-500 active:scale-98 text-white font-bold py-2.5 px-3 rounded-2xl cursor-pointer text-xs flex items-center justify-center gap-1.5 transition-all shadow-xs disabled:opacity-50"
+              >
+                <ShieldCheck className="w-4 h-4" />
+                <span>إرسال تجريبي للإدارة (role=admin)</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={isTestingOneSignal}
+                onClick={() => handleTestOneSignal('driver')}
+                className="bg-sky-600 hover:bg-sky-500 active:scale-98 text-white font-bold py-2.5 px-3 rounded-2xl cursor-pointer text-xs flex items-center justify-center gap-1.5 transition-all shadow-xs disabled:opacity-50"
+              >
+                <Truck className="w-4 h-4" />
+                <span>إرسال تجريبي للسائق (role=driver)</span>
+              </button>
+
+              <button
+                type="button"
+                disabled={isTestingOneSignal}
+                onClick={() => handleTestOneSignal('all')}
+                className="bg-stone-800 hover:bg-stone-700 active:scale-98 text-stone-200 font-bold py-2.5 px-3 rounded-2xl cursor-pointer text-xs flex items-center justify-center gap-1.5 transition-all border border-stone-700 shadow-xs disabled:opacity-50"
+              >
+                <Megaphone className="w-4 h-4" />
+                <span>بث تجريبي لجميع الأجهزة (Broadcast)</span>
+              </button>
+            </div>
+
+            {isTestingOneSignal && (
+              <div className="bg-stone-800/80 p-3 rounded-2xl border border-stone-700 flex items-center gap-2.5 text-xs text-stone-300 animate-pulse">
+                <Clock className="w-4 h-4 text-amber-400 shrink-0" />
+                <span>جاري إرسال الإشعار لخادم OneSignal وانتظار تقرير التسليم...</span>
+              </div>
+            )}
+
+            {oneSignalTestResult && !isTestingOneSignal && (
+              <div className={`p-3.5 rounded-2xl border text-xs space-y-2 ${
+                oneSignalTestResult.ok && oneSignalTestResult.data?.oneSignal?.success
+                  ? 'bg-emerald-950/50 border-emerald-800 text-emerald-200'
+                  : 'bg-rose-950/50 border-rose-800 text-rose-200'
+              }`}>
+                <div className="flex items-center justify-between font-bold">
+                  <div className="flex items-center gap-1.5">
+                    {oneSignalTestResult.ok && oneSignalTestResult.data?.oneSignal?.success ? (
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    ) : (
+                      <AlertCircle className="w-4 h-4 text-rose-400" />
+                    )}
+                    <span>نتيجة اختبار OneSignal ({oneSignalTestResult.targetRole}) - التوقيت: {oneSignalTestResult.timestamp}</span>
+                  </div>
+                  <span className="font-mono text-[11px] bg-black/40 px-2 py-0.5 rounded-md">HTTP {oneSignalTestResult.status}</span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 font-mono text-[11px] pt-1">
+                  <div className="bg-black/30 p-2 rounded-xl border border-white/5">
+                    <span className="block text-stone-400 text-[10px]">Notification ID:</span>
+                    <span className="font-bold truncate block">{oneSignalTestResult.data?.oneSignal?.id || 'لا يوجد'}</span>
+                  </div>
+                  <div className="bg-black/30 p-2 rounded-xl border border-white/5">
+                    <span className="block text-stone-400 text-[10px]">الأجهزة المستلمة (Recipients):</span>
+                    <span className="font-bold text-emerald-400 block text-sm">{oneSignalTestResult.data?.oneSignal?.recipients ?? 0} جهاز</span>
+                  </div>
+                  <div className="bg-black/30 p-2 rounded-xl border border-white/5">
+                    <span className="block text-stone-400 text-[10px]">حالة التسليم:</span>
+                    <span className="font-bold block">{oneSignalTestResult.data?.oneSignal?.success ? '✓ مكتمل بنجاح' : '✗ فشل'}</span>
+                  </div>
+                </div>
+
+                {oneSignalTestResult.data?.oneSignal?.error && (
+                  <div className="bg-rose-900/40 p-2 rounded-xl border border-rose-700/50 text-[11px] text-rose-300">
+                    <strong>الخطأ من OneSignal:</strong> {oneSignalTestResult.data.oneSignal.error}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
           <div className="bg-white p-4 rounded-3xl border border-stone-200/80 shadow-2xs">
             <h3 className="font-extrabold text-sm text-stone-900">إرسال إشعار عام للعملاء (Broadcast)</h3>
             <p className="text-xs text-stone-500 mb-3">يصل الإشعار لجميع مستخدمي التطبيق ويحفظ في Firestore</p>

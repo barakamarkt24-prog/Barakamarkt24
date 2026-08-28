@@ -10,6 +10,18 @@ dotenv.config();
 async function startServer() {
   const app = express();
   const PORT = 3000;
+
+  // Global CORS Middleware for all origins and preflight OPTIONS requests
+  app.use((req, res, next) => {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH");
+    res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+    if (req.method === "OPTIONS") {
+      return res.sendStatus(200);
+    }
+    next();
+  });
+
   app.use(express.json());
 
   // In-memory deduplication set to avoid re-broadcasting identical alerts within a short window
@@ -294,6 +306,7 @@ Requirements:
         },
         priority: 10,
         android_visibility: 1,
+        content_available: true,
         android_sound: "default",
         ios_sound: "default",
         android_accent_color: "10B981"

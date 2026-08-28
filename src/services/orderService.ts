@@ -15,7 +15,21 @@ import {
 import { db, collections, auth } from './firebaseConfig';
 import { CartItem, Order, OrderItem, OrderStatus, OrderTimelineItem, CustomerNoteStatus } from '../types';
 
-export const NOTIFICATION_API_URL = 'https://ais-pre-kien7lgdakhttc26u5uzal-508123128076.europe-west2.run.app/api/send-notification';
+export const NOTIFICATION_API_URL = (() => {
+  if (typeof window === 'undefined') {
+    return 'https://ais-pre-kien7lgdakhttc26u5uzal-508123128076.europe-west2.run.app/api/send-notification';
+  }
+
+  const hostname = window.location.hostname;
+
+  // إذا كنا داخل بيئة Cloud Run أو المحاكي
+  if (hostname.includes('run.app') || hostname.includes('ais-') || hostname.includes('localhost')) {
+    return `${window.location.origin}/api/send-notification`;
+  }
+
+  // إذا كنا على Netlify أو أي دومين خارجي
+  return 'https://ais-pre-kien7lgdakhttc26u5uzal-508123128076.europe-west2.run.app/api/send-notification';
+})();
 
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   received: 'تم استلام الطلب',

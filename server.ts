@@ -338,6 +338,8 @@ Requirements:
         payload.included_segments = ["Subscribed Users"];
       }
 
+      console.log(`[OneSignal Server] Outgoing Request Payload:`, JSON.stringify(payload, null, 2));
+
       const response = await fetch("https://onesignal.com/api/v1/notifications", {
         method: "POST",
         headers: {
@@ -348,6 +350,7 @@ Requirements:
       });
 
       const resData: any = await response.json().catch(() => ({}));
+      console.log(`[OneSignal Server] Response (HTTP ${response.status}):`, JSON.stringify(resData, null, 2));
 
       if (!response.ok) {
         const errDetail = Array.isArray(resData?.errors) ? resData.errors.join(", ") : (resData?.errors || `HTTP ${response.status}`);
@@ -390,7 +393,16 @@ Requirements:
         setTimeout(() => sentNotificationTags.delete(dedupKey), 15000);
       }
 
-      console.log(`[Notification Dispatcher] Dispatching push: "${notifTitle}" (orderId: ${orderId || 'none'}, target: ${role || userId || 'all'})`);
+      console.log(`[Notification Dispatcher] >>> Received Push Request:`, {
+        notifTitle,
+        notifBody,
+        role: role || 'none',
+        userId: userId || 'none',
+        orderId: orderId || 'none',
+        screen: screen || 'none',
+        url: url || 'none',
+        type: type || 'order'
+      });
 
       // 1. Primary: Dispatch OneSignal Push Notification
       const oneSignalResult = await sendOneSignalPush({
@@ -403,6 +415,8 @@ Requirements:
         url,
         screen
       });
+
+      console.log(`[Notification Dispatcher] OneSignal Push Result:`, oneSignalResult);
 
       // 2. Secondary / Fallback: Attempt FCM v1 if explicit tokens or FCM credentials exist
       const payload: PushNotificationPayload = {

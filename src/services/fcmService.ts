@@ -14,6 +14,7 @@ import {
 } from 'firebase/firestore';
 import { app, db, collections, auth } from './firebaseConfig';
 import { AppNotification, User } from '../types';
+import { NOTIFICATION_API_URL } from './orderService';
 
 export interface UserNotificationPreferences {
   orderUpdates: boolean;
@@ -510,7 +511,7 @@ class FCMService {
 
       // Dispatch backend push API in background
       try {
-        fetch('/api/send-notification', {
+        fetch(NOTIFICATION_API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -519,7 +520,8 @@ class FCMService {
             body: notification.message,
             orderId: notification.orderId,
             type: notification.type || 'order'
-          })
+          }),
+          keepalive: true
         }).catch(() => {});
       } catch {
         // Non-blocking

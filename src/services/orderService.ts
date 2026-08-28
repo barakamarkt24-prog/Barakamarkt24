@@ -15,6 +15,11 @@ import {
 import { db, collections, auth } from './firebaseConfig';
 import { CartItem, Order, OrderItem, OrderStatus, OrderTimelineItem, CustomerNoteStatus } from '../types';
 
+export const NOTIFICATION_API_URL = 
+  typeof window !== 'undefined' && window.location.hostname.includes('run.app') 
+    ? `${window.location.origin}/api/send-notification`
+    : 'https://ais-pre-kien7lgdakhttc26u5uzal-508123128076.europe-west2.run.app/api/send-notification';
+
 export const ORDER_STATUS_LABELS: Record<OrderStatus, string> = {
   received: 'تم استلام الطلب',
   pending: 'قيد الانتظار',
@@ -375,7 +380,7 @@ class OrderService {
           url: '/?screen=admin'
         };
 
-        await fetch('/api/send-notification', {
+        await fetch(NOTIFICATION_API_URL, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(pushPayload),
@@ -704,7 +709,7 @@ class OrderService {
             url: '/?screen=driver'
           };
 
-          await fetch('/api/send-notification', {
+          await fetch(NOTIFICATION_API_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(driverPushPayload),
